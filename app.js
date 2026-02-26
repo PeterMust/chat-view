@@ -1,5 +1,5 @@
 // ── State ──
-let supabase = null;
+let db = null;
 let allSessions = [];
 let currentSessionId = null;
 
@@ -68,11 +68,11 @@ async function handleConnect() {
   logStatus('Connecting to ' + url + ' ...');
 
   try {
-    supabase = window.supabase.createClient(url, key);
+    db = window.supabase.createClient(url, key);
     logStatus('Supabase client created. Testing connection...');
 
     // Test connection with a timeout
-    const testPromise = supabase
+    const testPromise = db
       .from('chat_messages')
       .select('id', { count: 'exact', head: true });
 
@@ -100,14 +100,14 @@ async function handleConnect() {
     if (sessions === false) {
       // loadSessions encountered an error, stay on login
       logStatus('Failed to load sessions. Staying on login screen.');
-      supabase = null;
+      db = null;
       return;
     }
 
     if (allSessions.length === 0) {
       logStatus('Connected but no sessions found. Table may be empty or restricted by RLS.');
       showLoginError('Connected successfully, but no sessions found. The chat_messages table may be empty or restricted by RLS policies.');
-      supabase = null;
+      db = null;
       return;
     }
 
@@ -120,7 +120,7 @@ async function handleConnect() {
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
-    supabase = null;
+    db = null;
   } finally {
     connectBtn.disabled = false;
     connectBtn.textContent = 'Connect';
@@ -130,7 +130,7 @@ async function handleConnect() {
 function handleDisconnect() {
   localStorage.removeItem('sb_project_id');
   localStorage.removeItem('sb_key');
-  supabase = null;
+  db = null;
   allSessions = [];
   currentSessionId = null;
   chatPanel.classList.remove('active');
@@ -176,7 +176,7 @@ async function loadSessions() {
   while (true) {
     logStatus('Fetching rows ' + from + '–' + (from + pageSize - 1) + '...');
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('chat_messages')
       .select('session_id, created_at')
       .range(from, from + pageSize - 1);
@@ -242,7 +242,7 @@ async function selectSession(sessionId) {
   // Show loading state
   chatMain.innerHTML = '<div class="loading-messages"><div class="spinner"></div> Loading messages...</div>';
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chat_messages')
     .select('*')
     .eq('session_id', sessionId)

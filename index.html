@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat View</title>
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --sidebar-bg: #ffffff;
+      --chat-bg: #e5ddd5;
+      --human-bubble: #ffffff;
+      --ai-bubble: #dcf8c6;
+      --system-color: #8696a0;
+      --tool-bg: #fff3cd;
+      --text-primary: #111b21;
+      --text-secondary: #667781;
+      --border: #e9edef;
+      --accent: #00a884;
+      --accent-hover: #008f72;
+      --badge-bg: #e1f0da;
+      --badge-text: #3b7a28;
+      --danger: #dc3545;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Login Panel */
+    #login-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #00a884 0%, #075e54 100%);
+    }
+
+    .login-card {
+      background: #fff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      width: 400px;
+      max-width: 90vw;
+    }
+
+    .login-card h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .login-card p {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    #login-error {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* Chat Panel */
+    #chat-panel {
+      display: none;
+      height: 100vh;
+    }
+
+    #chat-panel.active {
+      display: flex;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 340px;
+      min-width: 260px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-header h2 {
+      font-size: 18px;
+    }
+
+    .disconnect-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .disconnect-btn:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .search-box {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 20px;
+      background: var(--bg);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .session-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .session-item:hover {
+      background: var(--bg);
+    }
+
+    .session-item.active {
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+    }
+
+    .session-item .session-id {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .session-item .session-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .session-count {
+      font-size: 11px;
+      color: var(--text-secondary);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Main Chat Area */
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--chat-bg);
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8c8c8' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .chat-header {
+      padding: 14px 20px;
+      background: var(--sidebar-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-header h3 {
+      font-size: 16px;
+    }
+
+    .chat-header .meta-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Message Bubbles */
+    .message {
+      max-width: 65%;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      position: relative;
+      line-height: 1.45;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      word-wrap: break-word;
+    }
+
+    .message-wrapper {
+      display: flex;
+      margin-bottom: 2px;
+    }
+
+    .message-wrapper.human {
+      justify-content: flex-start;
+    }
+
+    .message-wrapper.ai {
+      justify-content: flex-end;
+    }
+
+    .message-wrapper.system {
+      justify-content: center;
+    }
+
+    .message-wrapper.tool {
+      justify-content: center;
+    }
+
+    .message.human-bubble {
+      background: var(--human-bubble);
+      border-top-left-radius: 2px;
+    }
+
+    .message.ai-bubble {
+      background: var(--ai-bubble);
+      border-top-right-radius: 2px;
+    }
+
+    .message.system-bubble {
+      background: rgba(255,255,255,0.85);
+      max-width: 80%;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 6px 16px;
+      border-radius: 20px;
+    }
+
+    .message.tool-bubble {
+      background: var(--tool-bg);
+      max-width: 80%;
+      font-size: 13px;
+      border-radius: var(--radius);
+    }
+
+    .message-text {
+      white-space: pre-wrap;
+    }
+
+    .message-time {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .message-label {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .message-label.human-label { color: #5b7083; }
+    .message-label.ai-label { color: var(--badge-text); }
+
+    /* Metadata Badges */
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      font-weight: 500;
+    }
+
+    .badge.end-conv {
+      background: #fde8e8;
+      color: #c53030;
+    }
+
+    .badge.verified {
+      background: #def7ec;
+      color: #03543f;
+    }
+
+    /* Tool Details */
+    .tool-details {
+      margin-top: 4px;
+    }
+
+    .tool-details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .tool-details summary:hover {
+      color: var(--text-primary);
+    }
+
+    .tool-details pre {
+      margin-top: 6px;
+      padding: 8px;
+      background: rgba(0,0,0,0.04);
+      border-radius: 4px;
+      font-size: 11px;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-messages {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; position: absolute; z-index: 10; }
+      .sidebar.hidden { display: none; }
+      .message { max-width: 85%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Panel -->
+  <div id="login-panel">
+    <div class="login-card">
+      <h1>Chat View</h1>
+      <p>Connect to your Supabase database to view chat conversations.</p>
+      <div class="form-group">
+        <label for="supabase-url">Supabase URL</label>
+        <input type="text" id="supabase-url" placeholder="https://your-project.supabase.co">
+      </div>
+      <div class="form-group">
+        <label for="supabase-key">Anon Key</label>
+        <input type="password" id="supabase-key" placeholder="your-anon-key">
+      </div>
+      <button class="btn" id="connect-btn">Connect</button>
+      <div id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div id="chat-panel">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Sessions</h2>
+        <button class="disconnect-btn" id="disconnect-btn">Disconnect</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="session-search" placeholder="Search sessions...">
+      </div>
+      <div class="session-count" id="session-count"></div>
+      <ul class="session-list" id="session-list"></ul>
+    </div>
+
+    <!-- Chat Main -->
+    <div class="chat-main" id="chat-main">
+      <div class="chat-empty" id="chat-empty">
+        Select a session to view the conversation
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

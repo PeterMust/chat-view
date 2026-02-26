@@ -441,8 +441,12 @@
       <h1>Chat View</h1>
       <p>Connect to your Supabase database to view chat conversations.</p>
       <div class="form-group">
-        <label for="supabase-url">Supabase URL</label>
-        <input type="text" id="supabase-url" placeholder="https://your-project.supabase.co">
+        <label for="supabase-url">Project ID</label>
+        <div style="display:flex;align-items:center;gap:0;">
+          <span style="padding:10px 0 10px 14px;background:var(--bg);border:1px solid var(--border);border-right:none;border-radius:var(--radius) 0 0 var(--radius);font-size:13px;color:var(--text-secondary);white-space:nowrap;">https://</span>
+          <input type="text" id="supabase-url" placeholder="your-project-id" style="border-radius:0;border-left:none;border-right:none;">
+          <span style="padding:10px 14px 10px 0;background:var(--bg);border:1px solid var(--border);border-left:none;border-radius:0 var(--radius) var(--radius) 0;font-size:13px;color:var(--text-secondary);white-space:nowrap;">.supabase.co</span>
+        </div>
       </div>
       <div class="form-group">
         <label for="supabase-key">Anon Key</label>

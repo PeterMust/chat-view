@@ -19,10 +19,10 @@ const chatEmpty = document.getElementById('chat-empty');
 
 // ── Init ──
 (function init() {
-  const savedUrl = localStorage.getItem('sb_url');
+  const savedProjectId = localStorage.getItem('sb_project_id');
   const savedKey = localStorage.getItem('sb_key');
-  if (savedUrl && savedKey) {
-    urlInput.value = savedUrl;
+  if (savedProjectId && savedKey) {
+    urlInput.value = savedProjectId;
     keyInput.value = savedKey;
   }
 
@@ -41,19 +41,20 @@ const chatEmpty = document.getElementById('chat-empty');
 
 // ── Connection ──
 async function handleConnect() {
-  const url = urlInput.value.trim();
+  const projectId = urlInput.value.trim();
   const key = keyInput.value.trim();
 
-  if (!url || !key) {
-    showLoginError('Please enter both URL and anon key.');
+  if (!projectId || !key) {
+    showLoginError('Please enter both Project ID and anon key.');
     return;
   }
 
-  // Check that the Supabase CDN library loaded
   if (!window.supabase || !window.supabase.createClient) {
     showLoginError('Supabase library failed to load. Check your network or ad blocker.');
     return;
   }
+
+  const url = 'https://' + projectId + '.supabase.co';
 
   connectBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
@@ -68,7 +69,7 @@ async function handleConnect() {
       .select('id', { count: 'exact', head: true });
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Connection timed out. Check your Supabase URL.')), 10000)
+      setTimeout(() => reject(new Error('Connection timed out. Check your Project ID.')), 10000)
     );
 
     const { count, error } = await Promise.race([testPromise, timeoutPromise]);
@@ -76,7 +77,7 @@ async function handleConnect() {
     if (error) throw error;
 
     // Save credentials
-    localStorage.setItem('sb_url', url);
+    localStorage.setItem('sb_project_id', projectId);
     localStorage.setItem('sb_key', key);
 
     // Switch to chat panel
@@ -94,7 +95,7 @@ async function handleConnect() {
 }
 
 function handleDisconnect() {
-  localStorage.removeItem('sb_url');
+  localStorage.removeItem('sb_project_id');
   localStorage.removeItem('sb_key');
   supabase = null;
   allSessions = [];

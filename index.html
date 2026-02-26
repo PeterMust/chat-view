@@ -464,7 +464,10 @@
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h2>Sessions</h2>
-        <button class="disconnect-btn" id="disconnect-btn">Disconnect</button>
+        <div style="display:flex;gap:6px;">
+          <button class="disconnect-btn" id="refresh-btn">Refresh</button>
+          <button class="disconnect-btn" id="disconnect-btn">Disconnect</button>
+        </div>
       </div>
       <div class="search-box">
         <input type="text" id="session-search" placeholder="Search sessions...">

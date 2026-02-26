@@ -11,6 +11,7 @@ const keyInput = document.getElementById('supabase-key');
 const connectBtn = document.getElementById('connect-btn');
 const loginError = document.getElementById('login-error');
 const disconnectBtn = document.getElementById('disconnect-btn');
+const refreshBtn = document.getElementById('refresh-btn');
 const sessionSearch = document.getElementById('session-search');
 const sessionCount = document.getElementById('session-count');
 const sessionList = document.getElementById('session-list');
@@ -30,6 +31,7 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
 
   connectBtn.addEventListener('click', handleConnect);
   disconnectBtn.addEventListener('click', handleDisconnect);
+  refreshBtn.addEventListener('click', handleRefresh);
   sessionSearch.addEventListener('input', renderSessionList);
 
   // Allow Enter to submit login
@@ -139,6 +141,21 @@ function handleDisconnect() {
   keyInput.value = '';
   sessionList.innerHTML = '';
   chatMain.innerHTML = '<div class="chat-empty">Select a session to view the conversation</div>';
+}
+
+async function handleRefresh() {
+  if (!db) return;
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = 'Refreshing...';
+  sessionCount.textContent = 'Refreshing sessions...';
+  await loadSessions();
+  if (allSessions.length > 0) {
+    renderSessionList();
+  } else {
+    sessionCount.textContent = 'No sessions found.';
+  }
+  refreshBtn.disabled = false;
+  refreshBtn.textContent = 'Refresh';
 }
 
 function showLoginError(msg) {

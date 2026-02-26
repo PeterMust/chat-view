@@ -89,11 +89,30 @@ async function handleConnect() {
     localStorage.setItem('sb_project_id', projectId);
     localStorage.setItem('sb_key', key);
 
-    // Switch to chat panel
+    // Load sessions BEFORE switching panels so the user can see progress
+    logStatus('Loading sessions...');
+    const sessions = await loadSessions();
+
+    if (sessions === false) {
+      // loadSessions encountered an error, stay on login
+      logStatus('Failed to load sessions. Staying on login screen.');
+      supabase = null;
+      return;
+    }
+
+    if (allSessions.length === 0) {
+      logStatus('Connected but no sessions found. Table may be empty or restricted by RLS.');
+      showLoginError('Connected successfully, but no sessions found. The chat_messages table may be empty or restricted by RLS policies.');
+      supabase = null;
+      return;
+    }
+
+    logStatus('Loaded ' + allSessions.length + ' sessions. Switching to chat view...');
+
+    // Now switch to chat panel
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
-
-    await loadSessions();
+    renderSessionList();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
@@ -144,8 +163,6 @@ function clearStatusLog() {
 
 // ── Sessions ──
 async function loadSessions() {
-  sessionCount.textContent = 'Loading sessions...';
-
   // Fetch all rows in pages of 1000 (Supabase default limit)
   const sessionMap = {};
   let from = 0;
@@ -153,17 +170,20 @@ async function loadSessions() {
   let totalRows = 0;
 
   while (true) {
+    logStatus('Fetching rows ' + from + '–' + (from + pageSize - 1) + '...');
+
     const { data, error } = await supabase
       .from('chat_messages')
       .select('session_id, created_at')
       .range(from, from + pageSize - 1);
 
     if (error) {
+      logStatus('Session fetch ERROR: ' + (error.message || JSON.stringify(error)));
       console.error('Failed to load sessions:', error);
-      sessionCount.textContent = 'Failed to load sessions: ' + (error.message || JSON.stringify(error));
-      return;
+      return false;
     }
 
+    logStatus('Got ' + data.length + ' rows in this page.');
     totalRows += data.length;
 
     for (const row of data) {
@@ -179,18 +199,15 @@ async function loadSessions() {
     // If we got fewer rows than the page size, we've reached the end
     if (data.length < pageSize) break;
     from += pageSize;
-    sessionCount.textContent = `Loading sessions... (${totalRows} rows fetched)`;
   }
+
+  logStatus('Total rows fetched: ' + totalRows + ', unique sessions: ' + Object.keys(sessionMap).length);
 
   allSessions = Object.entries(sessionMap)
     .map(([id, info]) => ({ id, count: info.count, latest: info.latest }))
     .sort((a, b) => b.latest.localeCompare(a.latest));
 
-  if (allSessions.length === 0) {
-    sessionCount.textContent = `No sessions found (${totalRows} rows returned). Table may be empty or restricted by RLS.`;
-  } else {
-    renderSessionList();
-  }
+  return true;
 }
 
 function renderSessionList() {

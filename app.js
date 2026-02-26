@@ -59,9 +59,13 @@ async function handleConnect() {
   connectBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
   hideLoginError();
+  clearStatusLog();
+
+  logStatus('Connecting to ' + url + ' ...');
 
   try {
     supabase = window.supabase.createClient(url, key);
+    logStatus('Supabase client created. Testing connection...');
 
     // Test connection with a timeout
     const testPromise = supabase
@@ -69,12 +73,17 @@ async function handleConnect() {
       .select('id', { count: 'exact', head: true });
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Connection timed out. Check your Project ID.')), 10000)
+      setTimeout(() => reject(new Error('Connection timed out after 10s. Check your Project ID.')), 10000)
     );
 
     const { count, error } = await Promise.race([testPromise, timeoutPromise]);
 
-    if (error) throw error;
+    if (error) {
+      logStatus('ERROR from Supabase: ' + JSON.stringify(error));
+      throw error;
+    }
+
+    logStatus('Connection OK. Row count: ' + (count !== null ? count : 'unknown (RLS may hide count)'));
 
     // Save credentials
     localStorage.setItem('sb_project_id', projectId);
@@ -86,6 +95,7 @@ async function handleConnect() {
 
     await loadSessions();
   } catch (err) {
+    logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
     supabase = null;
   } finally {
@@ -117,6 +127,21 @@ function hideLoginError() {
   loginError.style.display = 'none';
 }
 
+// ── Status Log ──
+const statusLog = document.getElementById('status-log');
+
+function logStatus(msg) {
+  statusLog.style.display = 'block';
+  const time = new Date().toLocaleTimeString();
+  statusLog.innerHTML += `<div>[${time}] ${escapeHtml(msg)}</div>`;
+  statusLog.scrollTop = statusLog.scrollHeight;
+}
+
+function clearStatusLog() {
+  statusLog.innerHTML = '';
+  statusLog.style.display = 'none';
+}
+
 // ── Sessions ──
 async function loadSessions() {
   sessionCount.textContent = 'Loading sessions...';
@@ -125,6 +150,7 @@ async function loadSessions() {
   const sessionMap = {};
   let from = 0;
   const pageSize = 1000;
+  let totalRows = 0;
 
   while (true) {
     const { data, error } = await supabase
@@ -134,9 +160,11 @@ async function loadSessions() {
 
     if (error) {
       console.error('Failed to load sessions:', error);
-      sessionCount.textContent = 'Failed to load sessions. Check console for details.';
+      sessionCount.textContent = 'Failed to load sessions: ' + (error.message || JSON.stringify(error));
       return;
     }
+
+    totalRows += data.length;
 
     for (const row of data) {
       if (!sessionMap[row.session_id]) {
@@ -151,6 +179,7 @@ async function loadSessions() {
     // If we got fewer rows than the page size, we've reached the end
     if (data.length < pageSize) break;
     from += pageSize;
+    sessionCount.textContent = `Loading sessions... (${totalRows} rows fetched)`;
   }
 
   allSessions = Object.entries(sessionMap)
@@ -158,7 +187,7 @@ async function loadSessions() {
     .sort((a, b) => b.latest.localeCompare(a.latest));
 
   if (allSessions.length === 0) {
-    sessionCount.textContent = 'No sessions found. The table may be empty or restricted by RLS.';
+    sessionCount.textContent = `No sessions found (${totalRows} rows returned). Table may be empty or restricted by RLS.`;
   } else {
     renderSessionList();
   }

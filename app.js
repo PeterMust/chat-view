@@ -49,6 +49,12 @@ async function handleConnect() {
     return;
   }
 
+  // Check that the Supabase CDN library loaded
+  if (!window.supabase || !window.supabase.createClient) {
+    showLoginError('Supabase library failed to load. Check your network or ad blocker.');
+    return;
+  }
+
   connectBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
   hideLoginError();
@@ -56,11 +62,16 @@ async function handleConnect() {
   try {
     supabase = window.supabase.createClient(url, key);
 
-    // Test connection
-    const { data, error } = await supabase
+    // Test connection with a timeout
+    const testPromise = supabase
       .from('chat_messages')
-      .select('id')
-      .limit(1);
+      .select('id', { count: 'exact', head: true });
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Connection timed out. Check your Supabase URL.')), 10000)
+    );
+
+    const { count, error } = await Promise.race([testPromise, timeoutPromise]);
 
     if (error) throw error;
 
@@ -107,33 +118,49 @@ function hideLoginError() {
 
 // ── Sessions ──
 async function loadSessions() {
-  // Fetch all distinct session_ids with message count and latest timestamp
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .select('session_id, created_at');
+  sessionCount.textContent = 'Loading sessions...';
 
-  if (error) {
-    console.error('Failed to load sessions:', error);
-    return;
-  }
-
-  // Group by session_id
+  // Fetch all rows in pages of 1000 (Supabase default limit)
   const sessionMap = {};
-  for (const row of data) {
-    if (!sessionMap[row.session_id]) {
-      sessionMap[row.session_id] = { count: 0, latest: row.created_at };
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('session_id, created_at')
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error('Failed to load sessions:', error);
+      sessionCount.textContent = 'Failed to load sessions. Check console for details.';
+      return;
     }
-    sessionMap[row.session_id].count++;
-    if (row.created_at > sessionMap[row.session_id].latest) {
-      sessionMap[row.session_id].latest = row.created_at;
+
+    for (const row of data) {
+      if (!sessionMap[row.session_id]) {
+        sessionMap[row.session_id] = { count: 0, latest: row.created_at };
+      }
+      sessionMap[row.session_id].count++;
+      if (row.created_at > sessionMap[row.session_id].latest) {
+        sessionMap[row.session_id].latest = row.created_at;
+      }
     }
+
+    // If we got fewer rows than the page size, we've reached the end
+    if (data.length < pageSize) break;
+    from += pageSize;
   }
 
   allSessions = Object.entries(sessionMap)
     .map(([id, info]) => ({ id, count: info.count, latest: info.latest }))
     .sort((a, b) => b.latest.localeCompare(a.latest));
 
-  renderSessionList();
+  if (allSessions.length === 0) {
+    sessionCount.textContent = 'No sessions found. The table may be empty or restricted by RLS.';
+  } else {
+    renderSessionList();
+  }
 }
 
 function renderSessionList() {

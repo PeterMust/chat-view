@@ -5,7 +5,7 @@
 //   supabase functions deploy chat-feedback --no-verify-jwt
 //
 // Required env var (set in Supabase Dashboard > Edge Functions > Secrets):
-//   N8N_WEBHOOK_URL  – your n8n webhook URL (kept server-side, never exposed to the browser)
+//   VA_FEEDBACK_FORM_WEBHOOK  – your n8n webhook URL (kept server-side, never exposed to the browser)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 2. Forward to n8n webhook ──
-    const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
+    const webhookUrl = Deno.env.get("VA_FEEDBACK_FORM_WEBHOOK");
     if (webhookUrl) {
       const webhookRes = await fetch(webhookUrl, {
         method: "POST",
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         console.error("Webhook error:", webhookRes.status, await webhookRes.text());
       }
     } else {
-      console.warn("N8N_WEBHOOK_URL not set – skipping webhook");
+      console.warn("VA_FEEDBACK_FORM_WEBHOOK not set – skipping webhook");
     }
 
     return new Response(JSON.stringify({ ok: true }), {

@@ -218,6 +218,84 @@
       border-bottom: 1px solid var(--border);
     }
 
+    /* Filter Panel */
+    .filter-toggle {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .filter-toggle:hover { background: var(--bg); }
+    .filter-toggle.open::before { content: '▾ '; }
+    .filter-toggle:not(.open)::before { content: '▸ '; }
+
+    .filter-panel {
+      display: none;
+      padding: 10px 16px 6px;
+      border-bottom: 1px solid var(--border);
+      background: #fafbfc;
+    }
+    .filter-panel.open { display: block; }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-row label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      min-width: 52px;
+    }
+    .filter-row label:not(:first-child) {
+      min-width: auto;
+    }
+    .filter-row input[type="date"],
+    .filter-row input[type="number"] {
+      flex: 1;
+      min-width: 0;
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+    .filter-row input:focus,
+    .filter-row select:focus {
+      border-color: var(--accent);
+    }
+    .filter-row select {
+      flex: 1;
+      min-width: 0;
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+    .filter-row select[multiple] {
+      height: 60px;
+    }
+    .filter-clear-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .filter-clear-btn:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
     /* Main Chat Area */
     .chat-main {
       flex: 1;
@@ -473,6 +551,38 @@
       <div class="search-box">
         <input type="text" id="session-search" placeholder="Search sessions...">
       </div>
+      <!-- Filters -->
+      <div class="filter-toggle" id="filter-toggle">Filters</div>
+      <div class="filter-panel" id="filter-panel">
+        <div class="filter-row">
+          <label>Date from</label>
+          <input type="date" id="filter-date-from">
+          <label>to</label>
+          <input type="date" id="filter-date-to">
+        </div>
+        <div class="filter-row">
+          <label>Messages</label>
+          <input type="number" id="filter-msg-min" placeholder="min" min="0">
+          <label>to</label>
+          <input type="number" id="filter-msg-max" placeholder="max" min="0">
+        </div>
+        <div class="filter-row">
+          <label>Tools used</label>
+          <select id="filter-tools" multiple></select>
+        </div>
+        <div class="filter-row">
+          <label>Sort by</label>
+          <select id="filter-sort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="most-msgs">Most messages</option>
+            <option value="least-msgs">Fewest messages</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <button class="filter-clear-btn" id="filter-clear">Clear filters</button>
+        </div>
+      </div>
       <div class="session-count" id="session-count"></div>
       <ul class="session-list" id="session-list"></ul>
     </div>
@@ -496,7 +606,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <script src="app.js?v=2"
+  <script src="app.js?v=3"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

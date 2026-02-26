@@ -1,6 +1,7 @@
 // ── State ──
 let db = null;
 let allSessions = [];
+let allToolNames = []; // unique tool names across all sessions
 let currentSessionId = null;
 
 // ── DOM Elements ──
@@ -17,6 +18,15 @@ const sessionCount = document.getElementById('session-count');
 const sessionList = document.getElementById('session-list');
 const chatMain = document.getElementById('chat-main');
 const chatEmpty = document.getElementById('chat-empty');
+const filterToggle = document.getElementById('filter-toggle');
+const filterPanel = document.getElementById('filter-panel');
+const filterDateFrom = document.getElementById('filter-date-from');
+const filterDateTo = document.getElementById('filter-date-to');
+const filterMsgMin = document.getElementById('filter-msg-min');
+const filterMsgMax = document.getElementById('filter-msg-max');
+const filterTools = document.getElementById('filter-tools');
+const filterSort = document.getElementById('filter-sort');
+const filterClear = document.getElementById('filter-clear');
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
@@ -33,6 +43,19 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   disconnectBtn.addEventListener('click', handleDisconnect);
   refreshBtn.addEventListener('click', handleRefresh);
   sessionSearch.addEventListener('input', renderSessionList);
+
+  // Filter controls
+  filterToggle.addEventListener('click', () => {
+    filterToggle.classList.toggle('open');
+    filterPanel.classList.toggle('open');
+  });
+  filterDateFrom.addEventListener('change', renderSessionList);
+  filterDateTo.addEventListener('change', renderSessionList);
+  filterMsgMin.addEventListener('input', renderSessionList);
+  filterMsgMax.addEventListener('input', renderSessionList);
+  filterTools.addEventListener('change', renderSessionList);
+  filterSort.addEventListener('change', renderSessionList);
+  filterClear.addEventListener('click', clearFilters);
 
   // Allow Enter to submit login
   keyInput.addEventListener('keydown', (e) => {
@@ -118,6 +141,7 @@ async function handleConnect() {
     // Now switch to chat panel
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
+    populateToolsFilter();
     renderSessionList();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
@@ -150,6 +174,7 @@ async function handleRefresh() {
   sessionCount.textContent = 'Refreshing sessions...';
   await loadSessions();
   if (allSessions.length > 0) {
+    populateToolsFilter();
     renderSessionList();
   } else {
     sessionCount.textContent = 'No sessions found.';
@@ -189,13 +214,14 @@ async function loadSessions() {
   let from = 0;
   const pageSize = 1000;
   let totalRows = 0;
+  const globalToolSet = new Set();
 
   while (true) {
     logStatus('Fetching rows ' + from + '–' + (from + pageSize - 1) + '...');
 
     const { data, error } = await db
       .from('chat_messages')
-      .select('session_id, created_at')
+      .select('session_id, created_at, message')
       .range(from, from + pageSize - 1);
 
     if (error) {
@@ -209,12 +235,25 @@ async function loadSessions() {
 
     for (const row of data) {
       if (!sessionMap[row.session_id]) {
-        sessionMap[row.session_id] = { count: 0, latest: row.created_at };
+        sessionMap[row.session_id] = { count: 0, latest: row.created_at, earliest: row.created_at, tools: new Set() };
       }
-      sessionMap[row.session_id].count++;
-      if (row.created_at > sessionMap[row.session_id].latest) {
-        sessionMap[row.session_id].latest = row.created_at;
-      }
+      const s = sessionMap[row.session_id];
+      s.count++;
+      if (row.created_at > s.latest) s.latest = row.created_at;
+      if (row.created_at < s.earliest) s.earliest = row.created_at;
+
+      // Extract tool names from message
+      try {
+        const msg = typeof row.message === 'string' ? JSON.parse(row.message) : row.message;
+        if (msg && msg.tool_calls && Array.isArray(msg.tool_calls)) {
+          for (const tc of msg.tool_calls) {
+            if (tc.name) { s.tools.add(tc.name); globalToolSet.add(tc.name); }
+          }
+        }
+        if (msg && msg.type === 'tool' && msg.name) {
+          s.tools.add(msg.name); globalToolSet.add(msg.name);
+        }
+      } catch { /* skip unparseable */ }
     }
 
     // If we got fewer rows than the page size, we've reached the end
@@ -225,19 +264,101 @@ async function loadSessions() {
   logStatus('Total rows fetched: ' + totalRows + ', unique sessions: ' + Object.keys(sessionMap).length);
 
   allSessions = Object.entries(sessionMap)
-    .map(([id, info]) => ({ id, count: info.count, latest: info.latest }))
+    .map(([id, info]) => ({
+      id,
+      count: info.count,
+      latest: info.latest,
+      earliest: info.earliest,
+      tools: Array.from(info.tools),
+    }))
     .sort((a, b) => b.latest.localeCompare(a.latest));
+
+  allToolNames = Array.from(globalToolSet).sort();
 
   return true;
 }
 
+function populateToolsFilter() {
+  filterTools.innerHTML = '';
+  for (const name of allToolNames) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    filterTools.appendChild(opt);
+  }
+}
+
+function clearFilters() {
+  filterDateFrom.value = '';
+  filterDateTo.value = '';
+  filterMsgMin.value = '';
+  filterMsgMax.value = '';
+  filterTools.selectedIndex = -1;
+  // deselect all options
+  for (const opt of filterTools.options) opt.selected = false;
+  filterSort.value = 'newest';
+  renderSessionList();
+}
+
 function renderSessionList() {
   const query = sessionSearch.value.trim().toLowerCase();
-  const filtered = query
-    ? allSessions.filter((s) => s.id.toLowerCase().includes(query))
-    : allSessions;
+  const dateFrom = filterDateFrom.value; // 'YYYY-MM-DD' or ''
+  const dateTo = filterDateTo.value;
+  const msgMin = filterMsgMin.value ? parseInt(filterMsgMin.value, 10) : null;
+  const msgMax = filterMsgMax.value ? parseInt(filterMsgMax.value, 10) : null;
+  const selectedTools = Array.from(filterTools.selectedOptions).map((o) => o.value);
+  const sortBy = filterSort.value;
 
-  sessionCount.textContent = `${filtered.length} session${filtered.length !== 1 ? 's' : ''}${query ? ' found' : ''}`;
+  let filtered = allSessions;
+
+  // Text search
+  if (query) {
+    filtered = filtered.filter((s) => s.id.toLowerCase().includes(query));
+  }
+
+  // Date range (compare against session's date span: show if session overlaps the range)
+  if (dateFrom) {
+    filtered = filtered.filter((s) => s.latest >= dateFrom);
+  }
+  if (dateTo) {
+    // Include the full "to" day
+    const toEnd = dateTo + 'T23:59:59';
+    filtered = filtered.filter((s) => s.earliest <= toEnd);
+  }
+
+  // Message count
+  if (msgMin !== null && !isNaN(msgMin)) {
+    filtered = filtered.filter((s) => s.count >= msgMin);
+  }
+  if (msgMax !== null && !isNaN(msgMax)) {
+    filtered = filtered.filter((s) => s.count <= msgMax);
+  }
+
+  // Tools (session must contain ALL selected tools)
+  if (selectedTools.length > 0) {
+    filtered = filtered.filter((s) =>
+      selectedTools.every((t) => s.tools.includes(t))
+    );
+  }
+
+  // Sort
+  filtered = [...filtered];
+  switch (sortBy) {
+    case 'oldest':
+      filtered.sort((a, b) => a.earliest.localeCompare(b.earliest));
+      break;
+    case 'most-msgs':
+      filtered.sort((a, b) => b.count - a.count);
+      break;
+    case 'least-msgs':
+      filtered.sort((a, b) => a.count - b.count);
+      break;
+    default: // 'newest'
+      filtered.sort((a, b) => b.latest.localeCompare(a.latest));
+  }
+
+  const hasFilters = query || dateFrom || dateTo || msgMin !== null || msgMax !== null || selectedTools.length > 0;
+  sessionCount.textContent = `${filtered.length} session${filtered.length !== 1 ? 's' : ''}${hasFilters ? ' found' : ''}`;
 
   sessionList.innerHTML = '';
   for (const session of filtered) {
@@ -527,10 +648,12 @@ function escapeHtml(str) {
   return str.replace(/[&<>"']/g, (c) => map[c]);
 }
 
+const TIME_ZONE = 'Europe/Chisinau';
+
 function formatDate(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: TIME_ZONE });
 }
 
 function formatTime(isoStr) {
@@ -542,5 +665,6 @@ function formatTime(isoStr) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    timeZone: TIME_ZONE,
   });
 }

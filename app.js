@@ -517,9 +517,9 @@ function renderMessages(rows, sessionId) {
   const header = document.createElement('div');
   header.className = 'chat-header';
   header.innerHTML = `
+    <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
     <h3>${escapeHtml(sessionId)}</h3>
     <span class="meta-info">${rows.length} messages</span>
-    <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
   `;
   chatMain.appendChild(header);
 
@@ -561,7 +561,7 @@ function renderMessages(rows, sessionId) {
     const fbBtn = document.createElement('button');
     fbBtn.className = 'feedback-hover-btn';
     fbBtn.title = 'Leave feedback on this message';
-    fbBtn.textContent = '\u270E'; // pencil
+    fbBtn.textContent = '\uD83D\uDCAC'; // speech bubble
     fbBtn.addEventListener('click', () => {
       openFeedbackModal('message', {
         session_id: sessionId,

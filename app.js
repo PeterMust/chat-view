@@ -17,6 +17,8 @@ const sessionList = document.getElementById('session-list');
 const chatMain = document.getElementById('chat-main');
 const chatEmpty = document.getElementById('chat-empty');
 
+console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
+
 // ── Init ──
 (function init() {
   const savedProjectId = localStorage.getItem('sb_project_id');
@@ -37,6 +39,8 @@ const chatEmpty = document.getElementById('chat-empty');
   urlInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleConnect();
   });
+
+  console.log('[app.js] Init complete. Event listeners attached.');
 })();
 
 // ── Connection ──

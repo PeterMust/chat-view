@@ -481,7 +481,19 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <!-- Catch any load errors visibly on-page -->
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('login-error');
+      if (el) { el.style.display = 'block'; el.textContent = 'JS Error: ' + msg + ' (at ' + src + ':' + line + ')'; }
+      console.error('Global error:', msg, src, line, col, err);
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+          onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
+  </script>
+  <script src="app.js"
+          onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
+  </script>
 </body>
 </html>

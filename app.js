@@ -736,7 +736,7 @@ async function submitFeedback() {
   };
 
   try {
-    const { data, error } = await db.functions.invoke('chat-feedback', {
+    const { data, error } = await db.functions.invoke('hyper-processor', {
       body: payload,
     });
 

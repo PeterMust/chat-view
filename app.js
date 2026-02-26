@@ -27,6 +27,16 @@ const filterMsgMax = document.getElementById('filter-msg-max');
 const filterTools = document.getElementById('filter-tools');
 const filterSort = document.getElementById('filter-sort');
 const filterClear = document.getElementById('filter-clear');
+const feedbackOverlay = document.getElementById('feedback-overlay');
+const fbSubtitle = document.getElementById('fb-subtitle');
+const fbCategory = document.getElementById('fb-category');
+const fbComment = document.getElementById('fb-comment');
+const fbCancel = document.getElementById('fb-cancel');
+const fbSubmit = document.getElementById('fb-submit');
+const fbStatus = document.getElementById('fb-status');
+
+// Hidden metadata for the currently open feedback form
+let feedbackMeta = {};
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
@@ -56,6 +66,13 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   filterTools.addEventListener('change', renderSessionList);
   filterSort.addEventListener('change', renderSessionList);
   filterClear.addEventListener('click', clearFilters);
+
+  // Feedback modal
+  fbCancel.addEventListener('click', closeFeedbackModal);
+  fbSubmit.addEventListener('click', submitFeedback);
+  feedbackOverlay.addEventListener('click', (e) => {
+    if (e.target === feedbackOverlay) closeFeedbackModal();
+  });
 
   // Allow Enter to submit login
   keyInput.addEventListener('keydown', (e) => {
@@ -502,15 +519,21 @@ function renderMessages(rows, sessionId) {
   header.innerHTML = `
     <h3>${escapeHtml(sessionId)}</h3>
     <span class="meta-info">${rows.length} messages</span>
+    <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
   `;
   chatMain.appendChild(header);
+
+  header.querySelector('#chat-feedback-btn').addEventListener('click', () => {
+    openFeedbackModal('chat', { session_id: sessionId, message_count: rows.length });
+  });
 
   // Messages container
   const container = document.createElement('div');
   container.className = 'messages-container';
   chatMain.appendChild(container);
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const parsed = parseMessage(row);
     const wrapper = document.createElement('div');
 
@@ -533,6 +556,24 @@ function renderMessages(rows, sessionId) {
       wrapper.className = 'message-wrapper system';
       wrapper.appendChild(createSystemBubble(parsed));
     }
+
+    // Hover feedback button on every message
+    const fbBtn = document.createElement('button');
+    fbBtn.className = 'feedback-hover-btn';
+    fbBtn.title = 'Leave feedback on this message';
+    fbBtn.textContent = '\u270E'; // pencil
+    fbBtn.addEventListener('click', () => {
+      openFeedbackModal('message', {
+        session_id: sessionId,
+        message_index: i,
+        message_type: parsed.type,
+        message_timestamp: parsed.timestamp,
+        message_text_excerpt: (parsed.text || '').substring(0, 200),
+        tool_name: parsed.toolName || (parsed.toolCalls ? parsed.toolCalls.map((t) => t.name).join(', ') : undefined),
+        raw: parsed.raw,
+      });
+    });
+    wrapper.appendChild(fbBtn);
 
     container.appendChild(wrapper);
   }
@@ -639,6 +680,77 @@ function createSystemBubble(parsed) {
   el.className = 'message system-bubble';
   el.innerHTML = `<div class="message-text">${escapeHtml(parsed.text)}</div>`;
   return el;
+}
+
+// ── Feedback ──
+function openFeedbackModal(type, meta) {
+  feedbackMeta = { type, ...meta };
+  fbCategory.value = '';
+  fbComment.value = '';
+  fbStatus.textContent = '';
+  fbStatus.className = 'fb-status';
+  fbSubmit.disabled = false;
+  fbSubtitle.textContent = type === 'chat'
+    ? 'About chat session: ' + (meta.session_id || '').substring(0, 24) + '...'
+    : 'About ' + (meta.message_type || '') + ' message at ' + formatTime(meta.message_timestamp);
+  feedbackOverlay.classList.add('open');
+}
+
+function closeFeedbackModal() {
+  feedbackOverlay.classList.remove('open');
+  feedbackMeta = {};
+}
+
+async function submitFeedback() {
+  const category = fbCategory.value;
+  const comment = fbComment.value.trim();
+
+  if (!category) {
+    fbStatus.textContent = 'Please select a category.';
+    fbStatus.className = 'fb-status error';
+    return;
+  }
+  if (!comment) {
+    fbStatus.textContent = 'Please enter a comment.';
+    fbStatus.className = 'fb-status error';
+    return;
+  }
+
+  fbSubmit.disabled = true;
+  fbStatus.textContent = 'Submitting...';
+  fbStatus.className = 'fb-status';
+
+  const payload = {
+    category,
+    comment,
+    feedback_type: feedbackMeta.type, // 'chat' or 'message'
+    session_id: feedbackMeta.session_id,
+    message_index: feedbackMeta.message_index,
+    message_type: feedbackMeta.message_type,
+    message_timestamp: feedbackMeta.message_timestamp,
+    message_text_excerpt: feedbackMeta.message_text_excerpt,
+    tool_name: feedbackMeta.tool_name,
+    message_count: feedbackMeta.message_count,
+    raw_message: feedbackMeta.raw,
+    submitted_at: new Date().toISOString(),
+  };
+
+  try {
+    const { data, error } = await db.functions.invoke('chat-feedback', {
+      body: payload,
+    });
+
+    if (error) throw error;
+
+    fbStatus.textContent = 'Feedback submitted. Thank you!';
+    fbStatus.className = 'fb-status success';
+    setTimeout(closeFeedbackModal, 1500);
+  } catch (err) {
+    console.error('Feedback submit error:', err);
+    fbStatus.textContent = 'Failed to submit: ' + (err.message || 'Unknown error');
+    fbStatus.className = 'fb-status error';
+    fbSubmit.disabled = false;
+  }
 }
 
 // ── Utilities ──

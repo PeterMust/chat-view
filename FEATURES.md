@@ -73,7 +73,7 @@ Update this file whenever a feature is added, changed, or completed.
 ## Todo
 
 ### High Priority
-- [ ] **Google OAuth + Admin Control Panel** — Replace manual credential entry with Google OAuth sign-in (required domain restriction via `CONFIG.ALLOWED_DOMAIN`). Add admin panel for managing user roles (`admin` / `user`). Requires `user_roles` table in Supabase (see SQL in "Database Setup: user_roles" section below). CONFIG object in `app.js` allows hardcoding Supabase URL + Anon Key to hide manual fields. Admin panel accessible only to `admin` role users via sidebar button.
+- [ ] **Google OAuth + Admin Control Panel** — Replace manual credential entry with Google OAuth sign-in (required domain restriction via `CONFIG.ALLOWED_DOMAIN`). Add admin panel for managing user roles (`admin` / `user`). Requires `chat_view_user_roles` table in Supabase (see SQL in "Database Setup: chat_view_user_roles" section below). CONFIG object in `app.js` allows hardcoding Supabase URL + Anon Key to hide manual fields. Admin panel accessible only to `admin` role users via sidebar button.
   - [ ] Add `CONFIG` object to `app.js` with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ALLOWED_DOMAIN`
   - [ ] Add Google sign-in button with SVG logo to login panel
   - [ ] Add `#manual-login-section` wrapper + `#auth-divider` for conditional display
@@ -84,87 +84,16 @@ Update this file whenever a feature is added, changed, or completed.
   - [ ] Add admin overlay HTML + CSS (modal with user table, role dropdowns)
   - [ ] Implement `openAdminPanel()`, `handleRoleChange()`, `closeAdminPanel()`
   - [ ] Add `user-email-display`, `admin-btn`, `signout-btn` to sidebar header
-  - [ ] Create `user_roles` table + RLS policies + trigger in Supabase (SQL provided below)
+  - [ ] Create `chat_view_user_roles` table + RLS policies + trigger in Supabase (SQL provided below)
   - [ ] Bump `app.js?v=9` → `app.js?v=10`
 - [ ] **Configurable timezone** — currently hardcoded to `Europe/Chisinau`; let user pick from a dropdown or detect from browser
 - [ ] **Filter by verified / end-conversation flags** — two boolean session properties not yet exposed in filters
 - [ ] **Keyboard navigation** — arrow keys to move between sessions in the list; Escape to close modal
 
 ### Medium Priority
-- [ ] **Copy message text** — a copy-to-clipboard button on each message bubble
-- [ ] **Export conversation** — download current session as JSON, plain text, or CSV
-- [ ] **Search highlight** — highlight the matching substring when text-searching sessions
-- [ ] **Mark session as reviewed** — local flag (localStorage) to visually distinguish sessions you have already checked
-- [ ] **Permalink / shareable URL** — encode project ID + session ID in the URL hash so a specific session can be bookmarked or shared (anon key would still need to be entered manually for security)
+No tasks for now
 
 ### Low Priority / Nice to Have
-- [ ] **Dark mode** — toggle using CSS custom properties; respect `prefers-color-scheme`
-- [ ] **Statistics panel** — aggregate view: total sessions, messages per day chart, top tools, category breakdown
-- [ ] **Session notes** — free-text annotation saved to localStorage (or a new `session_notes` table)
-- [ ] **Collapse system messages** — option to hide system messages from the conversation view
-- [ ] **Token / character count** — show rough size of AI responses and total conversation length
-- [ ] **Configurable table name** — currently hardcoded to `chat_messages`; could be a login-screen option for multi-tenant setups
-- [ ] **Infinite scroll for sessions** — currently all sessions are loaded into memory at once; could lazy-render the list for very large datasets
+No tasks for now
 
 ---
-
-## Database Setup: user_roles
-
-Required SQL for the Google OAuth + Admin Control Panel feature. Run in Supabase SQL Editor.
-
-### Table
-
-```sql
-CREATE TABLE user_roles (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  email text NOT NULL,
-  role text NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(user_id)
-);
-```
-
-### RLS Policies
-
-```sql
-ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
-
--- Users can read their own role
-CREATE POLICY "Users can read own role" ON user_roles
-  FOR SELECT USING (auth.uid() = user_id);
-
--- Admins can read all roles
-CREATE POLICY "Admins can read all roles" ON user_roles
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
-  );
-
--- Admins can update roles
-CREATE POLICY "Admins can update roles" ON user_roles
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
-  );
-```
-
-### Trigger: auto-create role on signup (first user = admin)
-
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.user_roles (user_id, email, role)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    CASE WHEN (SELECT count(*) FROM public.user_roles) = 0 THEN 'admin' ELSE 'user' END
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-```

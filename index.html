@@ -211,6 +211,40 @@
       margin-top: 2px;
     }
 
+    /* Type count pills (shared between session list and chat header) */
+    .type-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .type-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+    .type-pill.human { background: #eef1f4; color: #5b7083; }
+    .type-pill.ai { background: var(--badge-bg); color: var(--badge-text); }
+    .type-pill.tool { background: #fff3cd; color: #856404; }
+    .type-pill.system { background: #f0f2f5; color: var(--text-secondary); }
+
+    .session-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 3px;
+    }
+
+    .chat-header-counts {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
     .session-count {
       font-size: 11px;
       color: var(--text-secondary);
@@ -327,7 +361,6 @@
       font-size: 13px;
       color: var(--text-secondary);
       white-space: nowrap;
-      margin-left: auto;
     }
 
     .chat-empty {
@@ -704,6 +737,14 @@
           <select id="filter-tools" multiple></select>
         </div>
         <div class="filter-row">
+          <label>Category</label>
+          <select id="filter-category" multiple></select>
+        </div>
+        <div class="filter-row">
+          <label>Request type</label>
+          <select id="filter-request-type" multiple></select>
+        </div>
+        <div class="filter-row">
           <label>Sort by</label>
           <select id="filter-sort">
             <option value="newest">Newest first</option>
@@ -762,7 +803,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <script src="app.js?v=7"
+  <script src="app.js?v=8"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

@@ -2,6 +2,8 @@
 let db = null;
 let allSessions = [];
 let allToolNames = []; // unique tool names across all sessions
+let allCategories = []; // unique request categories
+let allRequestTypes = []; // unique request types
 let currentSessionId = null;
 
 // ── DOM Elements ──
@@ -26,6 +28,8 @@ const filterMsgMin = document.getElementById('filter-msg-min');
 const filterMsgMax = document.getElementById('filter-msg-max');
 const filterTools = document.getElementById('filter-tools');
 const filterSort = document.getElementById('filter-sort');
+const filterCategory = document.getElementById('filter-category');
+const filterRequestType = document.getElementById('filter-request-type');
 const filterClear = document.getElementById('filter-clear');
 const feedbackOverlay = document.getElementById('feedback-overlay');
 const fbSubtitle = document.getElementById('fb-subtitle');
@@ -65,6 +69,8 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   filterMsgMax.addEventListener('input', renderSessionList);
   filterTools.addEventListener('change', renderSessionList);
   filterSort.addEventListener('change', renderSessionList);
+  filterCategory.addEventListener('change', renderSessionList);
+  filterRequestType.addEventListener('change', renderSessionList);
   filterClear.addEventListener('click', clearFilters);
 
   // Feedback modal
@@ -158,7 +164,7 @@ async function handleConnect() {
     // Now switch to chat panel
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
-    populateToolsFilter();
+    populateFilters();
     renderSessionList();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
@@ -191,7 +197,7 @@ async function handleRefresh() {
   sessionCount.textContent = 'Refreshing sessions...';
   await loadSessions();
   if (allSessions.length > 0) {
-    populateToolsFilter();
+    populateFilters();
     renderSessionList();
   } else {
     sessionCount.textContent = 'No sessions found.';
@@ -232,6 +238,8 @@ async function loadSessions() {
   const pageSize = 1000;
   let totalRows = 0;
   const globalToolSet = new Set();
+  const globalCategorySet = new Set();
+  const globalRequestTypeSet = new Set();
 
   while (true) {
     logStatus('Fetching rows ' + from + '–' + (from + pageSize - 1) + '...');
@@ -252,23 +260,56 @@ async function loadSessions() {
 
     for (const row of data) {
       if (!sessionMap[row.session_id]) {
-        sessionMap[row.session_id] = { count: 0, latest: row.created_at, earliest: row.created_at, tools: new Set() };
+        sessionMap[row.session_id] = {
+          count: 0, latest: row.created_at, earliest: row.created_at,
+          tools: new Set(),
+          typeCounts: { human: 0, ai: 0, tool: 0, system: 0 },
+          categories: new Set(),
+          requestTypes: new Set(),
+          hasVerified: false,
+          hasEndConversation: false,
+        };
       }
       const s = sessionMap[row.session_id];
       s.count++;
       if (row.created_at > s.latest) s.latest = row.created_at;
       if (row.created_at < s.earliest) s.earliest = row.created_at;
 
-      // Extract tool names from message
+      // Parse message for metadata
       try {
         const msg = typeof row.message === 'string' ? JSON.parse(row.message) : row.message;
-        if (msg && msg.tool_calls && Array.isArray(msg.tool_calls)) {
+        if (!msg) continue;
+
+        // Count by type
+        const mtype = msg.type || 'unknown';
+        if (s.typeCounts[mtype] !== undefined) s.typeCounts[mtype]++;
+
+        // Extract tool names
+        if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
           for (const tc of msg.tool_calls) {
             if (tc.name) { s.tools.add(tc.name); globalToolSet.add(tc.name); }
           }
         }
-        if (msg && msg.type === 'tool' && msg.name) {
+        if (mtype === 'tool' && msg.name) {
           s.tools.add(msg.name); globalToolSet.add(msg.name);
+        }
+
+        // Extract AI metadata (category, request type, verified, end)
+        if (mtype === 'ai' && !msg.tool_calls) {
+          let content = msg.content;
+          if (typeof content === 'string') { try { content = JSON.parse(content); } catch { content = null; } }
+          if (content && content.output) {
+            if (content.output.request_category) {
+              s.categories.add(content.output.request_category);
+              globalCategorySet.add(content.output.request_category);
+            }
+            if (content.output.request_type) {
+              s.requestTypes.add(content.output.request_type);
+              globalRequestTypeSet.add(content.output.request_type);
+            }
+            if (content.output.identity_verified) s.hasVerified = true;
+            if (content.output.end_conversation) s.hasEndConversation = true;
+          }
         }
       } catch { /* skip unparseable */ }
     }
@@ -287,21 +328,42 @@ async function loadSessions() {
       latest: info.latest,
       earliest: info.earliest,
       tools: Array.from(info.tools),
+      typeCounts: info.typeCounts,
+      categories: Array.from(info.categories),
+      requestTypes: Array.from(info.requestTypes),
+      hasVerified: info.hasVerified,
+      hasEndConversation: info.hasEndConversation,
     }))
     .sort((a, b) => b.latest.localeCompare(a.latest));
 
   allToolNames = Array.from(globalToolSet).sort();
+  allCategories = Array.from(globalCategorySet).sort();
+  allRequestTypes = Array.from(globalRequestTypeSet).sort();
 
   return true;
 }
 
-function populateToolsFilter() {
+function populateFilters() {
   filterTools.innerHTML = '';
   for (const name of allToolNames) {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
     filterTools.appendChild(opt);
+  }
+  filterCategory.innerHTML = '';
+  for (const name of allCategories) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    filterCategory.appendChild(opt);
+  }
+  filterRequestType.innerHTML = '';
+  for (const name of allRequestTypes) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    filterRequestType.appendChild(opt);
   }
 }
 
@@ -311,10 +373,35 @@ function clearFilters() {
   filterMsgMin.value = '';
   filterMsgMax.value = '';
   filterTools.selectedIndex = -1;
-  // deselect all options
   for (const opt of filterTools.options) opt.selected = false;
+  filterCategory.selectedIndex = -1;
+  for (const opt of filterCategory.options) opt.selected = false;
+  filterRequestType.selectedIndex = -1;
+  for (const opt of filterRequestType.options) opt.selected = false;
   filterSort.value = 'newest';
   renderSessionList();
+}
+
+function buildTypePillsHtml(tc) {
+  const parts = [];
+  if (tc.human) parts.push(`<span class="type-pill human">${tc.human} human</span>`);
+  if (tc.ai) parts.push(`<span class="type-pill ai">${tc.ai} ai</span>`);
+  if (tc.tool) parts.push(`<span class="type-pill tool">${tc.tool} tool</span>`);
+  if (tc.system) parts.push(`<span class="type-pill system">${tc.system} sys</span>`);
+  return parts.join('');
+}
+
+function buildSessionBadgesHtml(session) {
+  const badges = [];
+  for (const cat of session.categories) {
+    badges.push(`<span class="badge">${escapeHtml(cat)}</span>`);
+  }
+  for (const rt of session.requestTypes) {
+    badges.push(`<span class="badge">${escapeHtml(rt)}</span>`);
+  }
+  if (session.hasVerified) badges.push('<span class="badge verified">verified</span>');
+  if (session.hasEndConversation) badges.push('<span class="badge end-conv">end</span>');
+  return badges.length ? `<div class="session-badges">${badges.join('')}</div>` : '';
 }
 
 function renderSessionList() {
@@ -324,6 +411,8 @@ function renderSessionList() {
   const msgMin = filterMsgMin.value ? parseInt(filterMsgMin.value, 10) : null;
   const msgMax = filterMsgMax.value ? parseInt(filterMsgMax.value, 10) : null;
   const selectedTools = Array.from(filterTools.selectedOptions).map((o) => o.value);
+  const selectedCategories = Array.from(filterCategory.selectedOptions).map((o) => o.value);
+  const selectedReqTypes = Array.from(filterRequestType.selectedOptions).map((o) => o.value);
   const sortBy = filterSort.value;
 
   let filtered = allSessions;
@@ -358,6 +447,20 @@ function renderSessionList() {
     );
   }
 
+  // Categories (session must have at least one matching category)
+  if (selectedCategories.length > 0) {
+    filtered = filtered.filter((s) =>
+      selectedCategories.some((c) => s.categories.includes(c))
+    );
+  }
+
+  // Request types (session must have at least one matching request type)
+  if (selectedReqTypes.length > 0) {
+    filtered = filtered.filter((s) =>
+      selectedReqTypes.some((r) => s.requestTypes.includes(r))
+    );
+  }
+
   // Sort
   filtered = [...filtered];
   switch (sortBy) {
@@ -374,16 +477,22 @@ function renderSessionList() {
       filtered.sort((a, b) => b.latest.localeCompare(a.latest));
   }
 
-  const hasFilters = query || dateFrom || dateTo || msgMin !== null || msgMax !== null || selectedTools.length > 0;
+  const hasFilters = query || dateFrom || dateTo || msgMin !== null || msgMax !== null
+    || selectedTools.length > 0 || selectedCategories.length > 0 || selectedReqTypes.length > 0;
   sessionCount.textContent = `${filtered.length} session${filtered.length !== 1 ? 's' : ''}${hasFilters ? ' found' : ''}`;
 
   sessionList.innerHTML = '';
   for (const session of filtered) {
     const li = document.createElement('li');
     li.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
+    const tc = session.typeCounts;
+    const typePills = buildTypePillsHtml(tc);
+    const badgesHtml = buildSessionBadgesHtml(session);
     li.innerHTML = `
       <div class="session-id">${escapeHtml(session.id)}</div>
       <div class="session-meta">${session.count} messages &middot; ${formatDate(session.latest)}</div>
+      <div class="type-counts">${typePills}</div>
+      ${badgesHtml}
     `;
     li.addEventListener('click', () => selectSession(session.id));
     sessionList.appendChild(li);
@@ -513,6 +622,16 @@ function parseMessage(row) {
 function renderMessages(rows, sessionId) {
   chatMain.innerHTML = '';
 
+  // Count message types
+  const headerCounts = { human: 0, ai: 0, tool: 0, system: 0 };
+  for (const row of rows) {
+    try {
+      const msg = typeof row.message === 'string' ? JSON.parse(row.message) : row.message;
+      const t = msg && msg.type;
+      if (headerCounts[t] !== undefined) headerCounts[t]++;
+    } catch { /* skip */ }
+  }
+
   // Chat header
   const header = document.createElement('div');
   header.className = 'chat-header';
@@ -520,6 +639,7 @@ function renderMessages(rows, sessionId) {
     <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
     <h3>${escapeHtml(sessionId)}</h3>
     <span class="meta-info">${rows.length} messages</span>
+    <div class="chat-header-counts">${buildTypePillsHtml(headerCounts)}</div>
   `;
   chatMain.appendChild(header);
 

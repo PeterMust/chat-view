@@ -190,6 +190,7 @@ For Edge Function changes:
 
 ## Git
 
-- Default branch: `master`
+- Default branch: `claude/consolidate-default-branch-FGKQn`
 - No CI/CD pipelines
 - Remote: Gitea instance via local proxy
+- **Branch creation policy**: Before creating a new branch, always ask the user for confirmation unless explicitly instructed to do so upfront.

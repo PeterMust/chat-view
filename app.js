@@ -295,7 +295,7 @@ async function loadSessions() {
         }
 
         // Extract AI metadata (category, request type, verified, end)
-        if (mtype === 'ai' && !msg.tool_calls) {
+        if (mtype === 'ai' && !(msg.tool_calls && msg.tool_calls.length > 0)) {
           let content = msg.content;
           if (typeof content === 'string') { try { content = JSON.parse(content); } catch { content = null; } }
           if (content && content.output) {

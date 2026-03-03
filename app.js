@@ -5,6 +5,7 @@ let allToolNames = []; // unique tool names across all sessions
 let allCategories = []; // unique request categories
 let allRequestTypes = []; // unique request types
 let currentSessionId = null;
+let realtimeChannel = null;
 
 // ── DOM Elements ──
 const loginPanel = document.getElementById('login-panel');
@@ -38,6 +39,7 @@ const fbComment = document.getElementById('fb-comment');
 const fbCancel = document.getElementById('fb-cancel');
 const fbSubmit = document.getElementById('fb-submit');
 const fbStatus = document.getElementById('fb-status');
+const liveBadge = document.getElementById('live-badge');
 
 // Hidden metadata for the currently open feedback form
 let feedbackMeta = {};
@@ -166,6 +168,7 @@ async function handleConnect() {
     chatPanel.classList.add('active');
     populateFilters();
     renderSessionList();
+    subscribeRealtime();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
@@ -179,6 +182,7 @@ async function handleConnect() {
 function handleDisconnect() {
   localStorage.removeItem('sb_project_id');
   localStorage.removeItem('sb_key');
+  unsubscribeRealtime();
   db = null;
   allSessions = [];
   currentSessionId = null;
@@ -192,6 +196,7 @@ function handleDisconnect() {
 
 async function handleRefresh() {
   if (!db) return;
+  unsubscribeRealtime();
   refreshBtn.disabled = true;
   refreshBtn.textContent = 'Refreshing...';
   sessionCount.textContent = 'Refreshing sessions...';
@@ -204,6 +209,91 @@ async function handleRefresh() {
   }
   refreshBtn.disabled = false;
   refreshBtn.textContent = 'Refresh';
+  subscribeRealtime();
+}
+
+// ── Realtime ──
+function subscribeRealtime() {
+  if (!db || realtimeChannel) return;
+  realtimeChannel = db.channel('chat-realtime')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, handleRealtimeInsert)
+    .subscribe((status) => {
+      liveBadge.classList.toggle('active', status === 'SUBSCRIBED');
+    });
+}
+
+function unsubscribeRealtime() {
+  if (realtimeChannel && db) db.removeChannel(realtimeChannel);
+  realtimeChannel = null;
+  liveBadge.classList.remove('active');
+}
+
+function handleRealtimeInsert(payload) {
+  const row = payload.new;
+  if (!row || !row.session_id) return;
+  const { session_id: sid, created_at: ts, message: rawMsg } = row;
+
+  let msg = null;
+  try { msg = typeof rawMsg === 'string' ? JSON.parse(rawMsg) : rawMsg; } catch (e) {}
+
+  let session = allSessions.find((s) => s.id === sid);
+  if (!session) {
+    session = {
+      id: sid, count: 0, latest: ts, earliest: ts,
+      tools: [], typeCounts: { human: 0, ai: 0, tool: 0, system: 0 },
+      categories: [], requestTypes: [], hasVerified: false, hasEndConversation: false,
+    };
+    allSessions.push(session);
+  }
+
+  session.count++;
+  if (ts > session.latest) session.latest = ts;
+  if (ts < session.earliest) session.earliest = ts;
+
+  if (msg) {
+    const t = msg.type;
+    if (t in session.typeCounts) session.typeCounts[t]++;
+
+    if (msg.tool_calls && msg.tool_calls.length) {
+      for (const tc of msg.tool_calls) {
+        if (tc.name && !session.tools.includes(tc.name)) session.tools.push(tc.name);
+        if (tc.name && !allToolNames.includes(tc.name)) { allToolNames.push(tc.name); allToolNames.sort(); }
+      }
+    }
+    if (t === 'tool' && msg.name) {
+      if (!session.tools.includes(msg.name)) session.tools.push(msg.name);
+      if (!allToolNames.includes(msg.name)) { allToolNames.push(msg.name); allToolNames.sort(); }
+    }
+
+    if (t === 'ai' && !(msg.tool_calls && msg.tool_calls.length)) {
+      let c = msg.content;
+      try { if (typeof c === 'string') c = JSON.parse(c); } catch (e) { c = null; }
+      if (c && c.output) {
+        const { request_category: cat, request_type: rtype, identity_verified, end_conversation } = c.output;
+        if (cat && !session.categories.includes(cat)) session.categories.push(cat);
+        if (cat && !allCategories.includes(cat)) { allCategories.push(cat); allCategories.sort(); }
+        if (rtype && !session.requestTypes.includes(rtype)) session.requestTypes.push(rtype);
+        if (rtype && !allRequestTypes.includes(rtype)) { allRequestTypes.push(rtype); allRequestTypes.sort(); }
+        if (identity_verified) session.hasVerified = true;
+        if (end_conversation) session.hasEndConversation = true;
+      }
+    }
+  }
+
+  allSessions.sort((a, b) => b.latest.localeCompare(a.latest));
+  repopulateFiltersPreservingSelection();
+  renderSessionList();
+  if (sid === currentSessionId) selectSession(sid);
+}
+
+function repopulateFiltersPreservingSelection() {
+  const selTools = Array.from(filterTools.selectedOptions).map((o) => o.value);
+  const selCats  = Array.from(filterCategory.selectedOptions).map((o) => o.value);
+  const selTypes = Array.from(filterRequestType.selectedOptions).map((o) => o.value);
+  populateFilters();
+  for (const opt of filterTools.options)       opt.selected = selTools.includes(opt.value);
+  for (const opt of filterCategory.options)    opt.selected = selCats.includes(opt.value);
+  for (const opt of filterRequestType.options) opt.selected = selTypes.includes(opt.value);
 }
 
 function showLoginError(msg) {

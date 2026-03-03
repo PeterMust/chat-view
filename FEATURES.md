@@ -23,6 +23,7 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] Type-count pills: human / ai / tool / system message counts per session
 - [x] Metadata badges per session: request category, request type, "verified", "end" flags
 - [x] Refresh button reloads all sessions from the database
+- [x] Realtime updates: new messages and sessions appear automatically via Supabase Realtime (INSERT events); pulsing "Live" badge shown when channel is active; filters preserved across updates
 
 ### Filtering & Search
 - [x] Text search: substring match on `session_id`
@@ -73,13 +74,13 @@ Update this file whenever a feature is added, changed, or completed.
 ## Todo
 
 ### High Priority
-- [ ] **Realtime Chat Updates** — Subscribe to Supabase Realtime so new messages and sessions appear automatically without manual refresh.
-  - [ ] Subscribe to `chat_messages` table INSERT events via `db.channel().on('postgres_changes', ...)` after initial load
-  - [ ] Incrementally update `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes` on each INSERT (no full reload)
-  - [ ] Re-render session list automatically on new data
-  - [ ] If the currently viewed session receives a new message, reload its message list automatically
-  - [ ] Unsubscribe cleanly on disconnect and pause/resume around manual refresh to avoid race conditions
-  - [ ] Show a pulsing "Live" badge in the sidebar header when the realtime channel is active (`SUBSCRIBED`)
+- [x] **Realtime Chat Updates** — Subscribe to Supabase Realtime so new messages and sessions appear automatically without manual refresh.
+  - [x] Subscribe to `chat_messages` table INSERT events via `db.channel().on('postgres_changes', ...)` after initial load
+  - [x] Incrementally update `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes` on each INSERT (no full reload)
+  - [x] Re-render session list automatically on new data
+  - [x] If the currently viewed session receives a new message, reload its message list automatically
+  - [x] Unsubscribe cleanly on disconnect and pause/resume around manual refresh to avoid race conditions
+  - [x] Show a pulsing "Live" badge in the sidebar header when the realtime channel is active (`SUBSCRIBED`)
 - [ ] **Dropdown Checklist Filters** — Replace the native `<select multiple>` for Tools, Category, and Request type filters with custom dropdown+checklist UI.
   - [ ] Each filter shows a trigger button with a label ("All tools" or "Tools (2)" when items are selected)
   - [ ] Clicking the trigger opens a scrollable checklist panel with one checkbox per item

@@ -163,6 +163,32 @@
       color: var(--danger);
     }
 
+    .live-badge {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      padding: 3px 8px;
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .live-badge.active { display: flex; }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: live-pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.85); }
+    }
+
     .search-box {
       padding: 10px 16px;
       border-bottom: 1px solid var(--border);
@@ -709,7 +735,8 @@
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h2>Sessions</h2>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
           <button class="disconnect-btn" id="refresh-btn">Refresh</button>
           <button class="disconnect-btn" id="disconnect-btn">Disconnect</button>
         </div>
@@ -803,7 +830,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <script src="app.js?v=9"
+  <script src="app.js?v=10"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

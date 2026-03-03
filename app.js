@@ -296,7 +296,7 @@ function handleRealtimeInsert(payload) {
   allSessions.sort((a, b) => b.latest.localeCompare(a.latest));
   repopulateFiltersPreservingSelection();
   renderSessionList();
-  if (sid === currentSessionId) selectSession(sid);
+  if (sid === currentSessionId) appendRealtimeMessage(row);
 }
 
 function repopulateFiltersPreservingSelection() {
@@ -826,6 +826,60 @@ function renderMessages(rows, sessionId) {
 
   // Scroll to bottom
   container.scrollTop = container.scrollHeight;
+}
+
+function appendRealtimeMessage(row) {
+  const container = chatMain.querySelector('.messages-container');
+  if (!container) return; // chat view not currently loaded
+
+  const parsed = parseMessage(row);
+  const wrapper = document.createElement('div');
+  const messageIndex = container.querySelectorAll('.message-wrapper').length;
+
+  if (parsed.type === 'human') {
+    wrapper.className = 'message-wrapper human';
+    wrapper.appendChild(createHumanBubble(parsed));
+  } else if (parsed.type === 'ai' && parsed.hasToolCalls) {
+    wrapper.className = 'message-wrapper tool';
+    wrapper.appendChild(createToolCallBubble(parsed));
+  } else if (parsed.type === 'ai') {
+    wrapper.className = 'message-wrapper ai';
+    wrapper.appendChild(createAiBubble(parsed));
+  } else if (parsed.type === 'tool') {
+    wrapper.className = 'message-wrapper tool';
+    wrapper.appendChild(createToolResultBubble(parsed));
+  } else {
+    wrapper.className = 'message-wrapper system';
+    wrapper.appendChild(createSystemBubble(parsed));
+  }
+
+  // Feedback hover button (same pattern as renderMessages)
+  const fbBtn = document.createElement('button');
+  fbBtn.className = 'feedback-hover-btn';
+  fbBtn.title = 'Leave feedback on this message';
+  fbBtn.textContent = '\uD83D\uDCAC';
+  fbBtn.addEventListener('click', () => {
+    openFeedbackModal('message', {
+      session_id: currentSessionId,
+      message_index: messageIndex,
+      message_type: parsed.type,
+      message_timestamp: parsed.timestamp,
+      message_text_excerpt: (parsed.text || '').substring(0, 200),
+      tool_name: parsed.toolName || (parsed.toolCalls ? parsed.toolCalls.map((t) => t.name).join(', ') : undefined),
+      raw: parsed.raw,
+    });
+  });
+  wrapper.appendChild(fbBtn);
+
+  container.appendChild(wrapper);
+  container.scrollTop = container.scrollHeight;
+
+  // Update header message count and type pills
+  const session = allSessions.find((s) => s.id === currentSessionId);
+  const metaEl = chatMain.querySelector('.meta-info');
+  if (metaEl && session) metaEl.textContent = session.count + ' messages';
+  const pillsEl = chatMain.querySelector('.chat-header-counts');
+  if (pillsEl && session) pillsEl.innerHTML = buildTypePillsHtml(session.typeCounts);
 }
 
 function createHumanBubble(parsed) {

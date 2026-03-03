@@ -27,10 +27,13 @@ const filterDateFrom = document.getElementById('filter-date-from');
 const filterDateTo = document.getElementById('filter-date-to');
 const filterMsgMin = document.getElementById('filter-msg-min');
 const filterMsgMax = document.getElementById('filter-msg-max');
-const filterTools = document.getElementById('filter-tools');
+const filterToolsTrigger = document.getElementById('filter-tools-trigger');
+const filterToolsPanel = document.getElementById('filter-tools-panel');
 const filterSort = document.getElementById('filter-sort');
-const filterCategory = document.getElementById('filter-category');
-const filterRequestType = document.getElementById('filter-request-type');
+const filterCategoryTrigger = document.getElementById('filter-category-trigger');
+const filterCategoryPanel = document.getElementById('filter-category-panel');
+const filterRequestTypeTrigger = document.getElementById('filter-request-type-trigger');
+const filterRequestTypePanel = document.getElementById('filter-request-type-panel');
 const filterClear = document.getElementById('filter-clear');
 const feedbackOverlay = document.getElementById('feedback-overlay');
 const fbSubtitle = document.getElementById('fb-subtitle');
@@ -69,10 +72,20 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   filterDateTo.addEventListener('change', renderSessionList);
   filterMsgMin.addEventListener('input', renderSessionList);
   filterMsgMax.addEventListener('input', renderSessionList);
-  filterTools.addEventListener('change', renderSessionList);
   filterSort.addEventListener('change', renderSessionList);
-  filterCategory.addEventListener('change', renderSessionList);
-  filterRequestType.addEventListener('change', renderSessionList);
+
+  // Dropdown checklist toggle + click-outside
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.dd-trigger');
+    if (trigger) {
+      const panel = trigger.nextElementSibling;
+      const isOpen = panel.classList.contains('open');
+      closeAllDropdowns();
+      if (!isOpen) { panel.classList.add('open'); trigger.classList.add('active'); }
+      return;
+    }
+    if (!e.target.closest('.dd-filter')) closeAllDropdowns();
+  });
   filterClear.addEventListener('click', clearFilters);
 
   // Feedback modal
@@ -287,13 +300,36 @@ function handleRealtimeInsert(payload) {
 }
 
 function repopulateFiltersPreservingSelection() {
-  const selTools = Array.from(filterTools.selectedOptions).map((o) => o.value);
-  const selCats  = Array.from(filterCategory.selectedOptions).map((o) => o.value);
-  const selTypes = Array.from(filterRequestType.selectedOptions).map((o) => o.value);
+  const selTools = getCheckedValues(filterToolsPanel);
+  const selCats  = getCheckedValues(filterCategoryPanel);
+  const selTypes = getCheckedValues(filterRequestTypePanel);
   populateFilters();
-  for (const opt of filterTools.options)       opt.selected = selTools.includes(opt.value);
-  for (const opt of filterCategory.options)    opt.selected = selCats.includes(opt.value);
-  for (const opt of filterRequestType.options) opt.selected = selTypes.includes(opt.value);
+  restoreChecked(filterToolsPanel, filterToolsTrigger, selTools, 'All tools', 'Tools');
+  restoreChecked(filterCategoryPanel, filterCategoryTrigger, selCats, 'All categories', 'Category');
+  restoreChecked(filterRequestTypePanel, filterRequestTypeTrigger, selTypes, 'All types', 'Type');
+}
+
+function getCheckedValues(panel) {
+  return Array.from(panel.querySelectorAll('input[type=checkbox]:checked')).map((cb) => cb.value);
+}
+
+function restoreChecked(panel, trigger, values, defaultLabel, activePrefix) {
+  for (const cb of panel.querySelectorAll('input[type=checkbox]')) {
+    cb.checked = values.includes(cb.value);
+  }
+  updateDropdownLabel(panel, trigger, defaultLabel, activePrefix);
+}
+
+function updateDropdownLabel(panel, trigger, defaultLabel, activePrefix) {
+  const count = panel.querySelectorAll('input[type=checkbox]:checked').length;
+  trigger.textContent = count ? activePrefix + ' (' + count + ')' : defaultLabel;
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dd-panel.open').forEach((p) => {
+    p.classList.remove('open');
+    p.previousElementSibling.classList.remove('active');
+  });
 }
 
 function showLoginError(msg) {
@@ -434,27 +470,27 @@ async function loadSessions() {
 }
 
 function populateFilters() {
-  filterTools.innerHTML = '';
-  for (const name of allToolNames) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    filterTools.appendChild(opt);
+  buildDropdown(filterToolsPanel, filterToolsTrigger, allToolNames, 'All tools', 'Tools');
+  buildDropdown(filterCategoryPanel, filterCategoryTrigger, allCategories, 'All categories', 'Category');
+  buildDropdown(filterRequestTypePanel, filterRequestTypeTrigger, allRequestTypes, 'All types', 'Type');
+}
+
+function buildDropdown(panel, trigger, items, defaultLabel, activePrefix) {
+  panel.innerHTML = '';
+  for (const item of items) {
+    const lbl = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = item;
+    cb.addEventListener('change', () => {
+      updateDropdownLabel(panel, trigger, defaultLabel, activePrefix);
+      renderSessionList();
+    });
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' ' + item));
+    panel.appendChild(lbl);
   }
-  filterCategory.innerHTML = '';
-  for (const name of allCategories) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    filterCategory.appendChild(opt);
-  }
-  filterRequestType.innerHTML = '';
-  for (const name of allRequestTypes) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    filterRequestType.appendChild(opt);
-  }
+  updateDropdownLabel(panel, trigger, defaultLabel, activePrefix);
 }
 
 function clearFilters() {
@@ -462,12 +498,12 @@ function clearFilters() {
   filterDateTo.value = '';
   filterMsgMin.value = '';
   filterMsgMax.value = '';
-  filterTools.selectedIndex = -1;
-  for (const opt of filterTools.options) opt.selected = false;
-  filterCategory.selectedIndex = -1;
-  for (const opt of filterCategory.options) opt.selected = false;
-  filterRequestType.selectedIndex = -1;
-  for (const opt of filterRequestType.options) opt.selected = false;
+  for (const cb of filterToolsPanel.querySelectorAll('input[type=checkbox]')) cb.checked = false;
+  filterToolsTrigger.textContent = 'All tools';
+  for (const cb of filterCategoryPanel.querySelectorAll('input[type=checkbox]')) cb.checked = false;
+  filterCategoryTrigger.textContent = 'All categories';
+  for (const cb of filterRequestTypePanel.querySelectorAll('input[type=checkbox]')) cb.checked = false;
+  filterRequestTypeTrigger.textContent = 'All types';
   filterSort.value = 'newest';
   renderSessionList();
 }
@@ -500,9 +536,9 @@ function renderSessionList() {
   const dateTo = filterDateTo.value;
   const msgMin = filterMsgMin.value ? parseInt(filterMsgMin.value, 10) : null;
   const msgMax = filterMsgMax.value ? parseInt(filterMsgMax.value, 10) : null;
-  const selectedTools = Array.from(filterTools.selectedOptions).map((o) => o.value);
-  const selectedCategories = Array.from(filterCategory.selectedOptions).map((o) => o.value);
-  const selectedReqTypes = Array.from(filterRequestType.selectedOptions).map((o) => o.value);
+  const selectedTools = getCheckedValues(filterToolsPanel);
+  const selectedCategories = getCheckedValues(filterCategoryPanel);
+  const selectedReqTypes = getCheckedValues(filterRequestTypePanel);
   const sortBy = filterSort.value;
 
   let filtered = allSessions;

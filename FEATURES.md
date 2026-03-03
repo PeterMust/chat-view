@@ -81,16 +81,16 @@ Update this file whenever a feature is added, changed, or completed.
   - [x] If the currently viewed session receives a new message, reload its message list automatically
   - [x] Unsubscribe cleanly on disconnect and pause/resume around manual refresh to avoid race conditions
   - [x] Show a pulsing "Live" badge in the sidebar header when the realtime channel is active (`SUBSCRIBED`)
-- [ ] **Dropdown Checklist Filters** — Replace the native `<select multiple>` for Tools, Category, and Request type filters with custom dropdown+checklist UI.
-  - [ ] Each filter shows a trigger button with a label ("All tools" or "Tools (2)" when items are selected)
-  - [ ] Clicking the trigger opens a scrollable checklist panel with one checkbox per item
-  - [ ] Multiple items can be checked simultaneously; unchecking all reverts label to default
-  - [ ] Clicking outside any open dropdown closes it; opening one closes any other open dropdown
-  - [ ] `populateFilters()` builds checkboxes instead of `<option>` elements
-  - [ ] `renderSessionList()` reads checked checkboxes; existing AND/OR filter logic unchanged
-  - [ ] `clearFilters()` unchecks all checkboxes and resets trigger labels
-  - [ ] When new tools/categories/types arrive via realtime, rebuild dropdowns while preserving checked state
-  - [ ] Styling consistent with existing filter UI using existing CSS custom properties
+- [x] **Dropdown Checklist Filters** — Replace the native `<select multiple>` for Tools, Category, and Request type filters with custom dropdown+checklist UI.
+  - [x] Each filter shows a trigger button with a label ("All tools" or "Tools (2)" when items are selected)
+  - [x] Clicking the trigger opens a scrollable checklist panel with one checkbox per item
+  - [x] Multiple items can be checked simultaneously; unchecking all reverts label to default
+  - [x] Clicking outside any open dropdown closes it; opening one closes any other open dropdown
+  - [x] `populateFilters()` builds checkboxes instead of `<option>` elements
+  - [x] `renderSessionList()` reads checked checkboxes; existing AND/OR filter logic unchanged
+  - [x] `clearFilters()` unchecks all checkboxes and resets trigger labels
+  - [x] When new tools/categories/types arrive via realtime, rebuild dropdowns while preserving checked state
+  - [x] Styling consistent with existing filter UI using existing CSS custom properties
 - [ ] **Google OAuth + Admin Control Panel** — Replace manual credential entry with Google OAuth sign-in (required domain restriction via `CONFIG.ALLOWED_DOMAIN`). Add admin panel for managing user roles (`admin` / `user`). Requires `chat_view_user_roles` table in Supabase (see SQL in "Database Setup: chat_view_user_roles" section below). CONFIG object in `app.js` allows hardcoding Supabase URL + Anon Key to hide manual fields. Admin panel accessible only to `admin` role users via sidebar button.
   - [ ] Add `CONFIG` object to `app.js` with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ALLOWED_DOMAIN`
   - [ ] Add Google sign-in button with SVG logo to login panel

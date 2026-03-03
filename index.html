@@ -339,8 +339,58 @@
       font-size: 12px;
       outline: none;
     }
-    .filter-row select[multiple] {
-      height: 60px;
+    .dd-filter {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+    .dd-trigger {
+      width: 100%;
+      text-align: left;
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dd-trigger:hover, .dd-trigger.active { border-color: var(--accent); }
+    .dd-panel {
+      display: none;
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      min-width: 100%;
+      max-height: 160px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      z-index: 200;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .dd-panel.open { display: block; }
+    .dd-panel label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      min-width: auto;
+    }
+    .dd-panel label:hover { background: var(--bg); }
+    .dd-panel input[type="checkbox"] {
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
     }
     .filter-clear-btn {
       background: none;
@@ -761,15 +811,24 @@
         </div>
         <div class="filter-row">
           <label>Tools used</label>
-          <select id="filter-tools" multiple></select>
+          <div class="dd-filter" id="filter-tools-wrap">
+            <button class="dd-trigger" id="filter-tools-trigger">All tools</button>
+            <div class="dd-panel" id="filter-tools-panel"></div>
+          </div>
         </div>
         <div class="filter-row">
           <label>Category</label>
-          <select id="filter-category" multiple></select>
+          <div class="dd-filter" id="filter-category-wrap">
+            <button class="dd-trigger" id="filter-category-trigger">All categories</button>
+            <div class="dd-panel" id="filter-category-panel"></div>
+          </div>
         </div>
         <div class="filter-row">
           <label>Request type</label>
-          <select id="filter-request-type" multiple></select>
+          <div class="dd-filter" id="filter-request-type-wrap">
+            <button class="dd-trigger" id="filter-request-type-trigger">All types</button>
+            <div class="dd-panel" id="filter-request-type-panel"></div>
+          </div>
         </div>
         <div class="filter-row">
           <label>Sort by</label>
@@ -830,7 +889,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <script src="app.js?v=10"
+  <script src="app.js?v=11"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

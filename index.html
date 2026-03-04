@@ -702,6 +702,34 @@
       color: #03543f;
     }
 
+    .badge.reviewed-badge {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    /* Reviewed button in chat header */
+    .chat-reviewed-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 10px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .chat-reviewed-btn:hover {
+      border-color: #0369a1;
+      color: #0369a1;
+    }
+    .chat-reviewed-btn.reviewed-active {
+      background: #e0f2fe;
+      border-color: #0369a1;
+      color: #0369a1;
+      font-weight: 600;
+    }
+
     /* Tool Details */
     .tool-details {
       margin-top: 4px;
@@ -853,6 +881,14 @@
           </select>
         </div>
         <div class="filter-row">
+          <label>Reviewed</label>
+          <select id="filter-reviewed">
+            <option value="all">All sessions</option>
+            <option value="unreviewed">Unreviewed only</option>
+            <option value="reviewed">Reviewed only</option>
+          </select>
+        </div>
+        <div class="filter-row">
           <button class="filter-clear-btn" id="filter-clear">Clear filters</button>
         </div>
       </div>
@@ -902,7 +938,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <script src="app.js?v=12"
+  <script src="app.js?v=13"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

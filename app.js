@@ -34,6 +34,7 @@ const filterCategoryTrigger = document.getElementById('filter-category-trigger')
 const filterCategoryPanel = document.getElementById('filter-category-panel');
 const filterRequestTypeTrigger = document.getElementById('filter-request-type-trigger');
 const filterRequestTypePanel = document.getElementById('filter-request-type-panel');
+const filterReviewed = document.getElementById('filter-reviewed');
 const filterClear = document.getElementById('filter-clear');
 const feedbackOverlay = document.getElementById('feedback-overlay');
 const fbSubtitle = document.getElementById('fb-subtitle');
@@ -46,6 +47,7 @@ const liveBadge = document.getElementById('live-badge');
 
 // Hidden metadata for the currently open feedback form
 let feedbackMeta = {};
+let reviewedSessions = new Set();
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
@@ -73,6 +75,7 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   filterMsgMin.addEventListener('input', renderSessionList);
   filterMsgMax.addEventListener('input', renderSessionList);
   filterSort.addEventListener('change', renderSessionList);
+  filterReviewed.addEventListener('change', renderSessionList);
 
   // Dropdown checklist toggle + click-outside
   document.addEventListener('click', (e) => {
@@ -175,6 +178,7 @@ async function handleConnect() {
     }
 
     logStatus('Loaded ' + allSessions.length + ' sessions. Switching to chat view...');
+    loadReviewed();
 
     // Now switch to chat panel
     loginPanel.style.display = 'none';
@@ -199,6 +203,7 @@ function handleDisconnect() {
   db = null;
   allSessions = [];
   currentSessionId = null;
+  reviewedSessions = new Set();
   chatPanel.classList.remove('active');
   loginPanel.style.display = 'flex';
   urlInput.value = '';
@@ -505,6 +510,7 @@ function clearFilters() {
   for (const cb of filterRequestTypePanel.querySelectorAll('input[type=checkbox]')) cb.checked = false;
   filterRequestTypeTrigger.textContent = 'All types';
   filterSort.value = 'newest';
+  filterReviewed.value = 'all';
   renderSessionList();
 }
 
@@ -519,6 +525,9 @@ function buildTypePillsHtml(tc) {
 
 function buildSessionBadgesHtml(session) {
   const badges = [];
+  if (reviewedSessions.has(session.id)) {
+    badges.push('<span class="badge reviewed-badge">reviewed</span>');
+  }
   for (const cat of session.categories) {
     badges.push(`<span class="badge">${escapeHtml(cat)}</span>`);
   }
@@ -540,6 +549,7 @@ function renderSessionList() {
   const selectedCategories = getCheckedValues(filterCategoryPanel);
   const selectedReqTypes = getCheckedValues(filterRequestTypePanel);
   const sortBy = filterSort.value;
+  const reviewedFilter = filterReviewed.value; // 'all', 'reviewed', 'unreviewed'
 
   let filtered = allSessions;
 
@@ -587,6 +597,13 @@ function renderSessionList() {
     );
   }
 
+  // Reviewed filter
+  if (reviewedFilter === 'reviewed') {
+    filtered = filtered.filter((s) => reviewedSessions.has(s.id));
+  } else if (reviewedFilter === 'unreviewed') {
+    filtered = filtered.filter((s) => !reviewedSessions.has(s.id));
+  }
+
   // Sort
   filtered = [...filtered];
   switch (sortBy) {
@@ -604,7 +621,8 @@ function renderSessionList() {
   }
 
   const hasFilters = query || dateFrom || dateTo || msgMin !== null || msgMax !== null
-    || selectedTools.length > 0 || selectedCategories.length > 0 || selectedReqTypes.length > 0;
+    || selectedTools.length > 0 || selectedCategories.length > 0 || selectedReqTypes.length > 0
+    || reviewedFilter !== 'all';
   sessionCount.textContent = `${filtered.length} session${filtered.length !== 1 ? 's' : ''}${hasFilters ? ' found' : ''}`;
 
   sessionList.innerHTML = '';
@@ -759,15 +777,19 @@ function renderMessages(rows, sessionId) {
   }
 
   // Chat header
+  const isReviewed = reviewedSessions.has(sessionId);
   const header = document.createElement('div');
   header.className = 'chat-header';
   header.innerHTML = `
+    <button class="chat-reviewed-btn${isReviewed ? ' reviewed-active' : ''}" id="chat-reviewed-btn">${isReviewed ? 'Reviewed ✓' : 'Mark Reviewed'}</button>
     <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
     <h3>${escapeHtml(sessionId)}</h3>
     <span class="meta-info">${rows.length} messages</span>
     <div class="chat-header-counts">${buildTypePillsHtml(headerCounts)}</div>
   `;
   chatMain.appendChild(header);
+
+  header.querySelector('#chat-reviewed-btn').addEventListener('click', () => toggleReviewed(sessionId));
 
   header.querySelector('#chat-feedback-btn').addEventListener('click', () => {
     openFeedbackModal('chat', { session_id: sessionId, message_count: rows.length });
@@ -1051,6 +1073,41 @@ async function submitFeedback() {
     fbStatus.className = 'fb-status error';
     fbSubmit.disabled = false;
   }
+}
+
+// ── Reviewed Sessions ──
+function getReviewedKey() {
+  return 'sb_reviewed_' + (localStorage.getItem('sb_project_id') || 'default');
+}
+
+function loadReviewed() {
+  try {
+    const data = JSON.parse(localStorage.getItem(getReviewedKey()) || '[]');
+    reviewedSessions = new Set(Array.isArray(data) ? data : []);
+  } catch { reviewedSessions = new Set(); }
+}
+
+function saveReviewed() {
+  localStorage.setItem(getReviewedKey(), JSON.stringify(Array.from(reviewedSessions)));
+}
+
+function toggleReviewed(sessionId) {
+  if (reviewedSessions.has(sessionId)) {
+    reviewedSessions.delete(sessionId);
+  } else {
+    reviewedSessions.add(sessionId);
+  }
+  saveReviewed();
+  updateReviewedButton(sessionId);
+  renderSessionList();
+}
+
+function updateReviewedButton(sessionId) {
+  const btn = document.getElementById('chat-reviewed-btn');
+  if (!btn) return;
+  const isReviewed = reviewedSessions.has(sessionId);
+  btn.textContent = isReviewed ? 'Reviewed ✓' : 'Mark Reviewed';
+  btn.classList.toggle('reviewed-active', isReviewed);
 }
 
 // ── Utilities ──

@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       tool_name: payload.tool_name ?? null,
       message_count: payload.message_count ?? null,
       raw_message: payload.raw_message ?? null,
+      submitted_by: payload.submitted_by ?? null,
       submitted_at: payload.submitted_at,
     });
 

@@ -1124,7 +1124,7 @@ async function submitFeedback() {
   };
 
   try {
-    const { data, error } = await db.functions.invoke('hyper-processor', {
+    const { data, error } = await db.functions.invoke('chat-view', {
       body: payload,
     });
 

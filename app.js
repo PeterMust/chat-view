@@ -248,6 +248,8 @@ async function handleLogout() {
   currentSessionId = null;
   reviewedSessions = new Set();
   if (userBadge) userBadge.textContent = '';
+  const sc = document.getElementById('chat-session-controls');
+  if (sc) sc.innerHTML = '';
   chatPanel.classList.remove('active');
   loginPanel.style.display = 'flex';
   sessionList.innerHTML = '';
@@ -818,22 +820,20 @@ function renderMessages(rows, sessionId) {
     } catch { /* skip */ }
   }
 
-  // Chat header
+  // Chat header — update permanent session controls bar
   const isReviewed = reviewedSessions.has(sessionId);
-  const header = document.createElement('div');
-  header.className = 'chat-header';
-  header.innerHTML = `
+  const sessionControls = document.getElementById('chat-session-controls');
+  sessionControls.innerHTML = `
     <button class="chat-reviewed-btn${isReviewed ? ' reviewed-active' : ''}" id="chat-reviewed-btn">${isReviewed ? 'Reviewed ✓' : 'Mark Reviewed'}</button>
     <button class="chat-feedback-btn" id="chat-feedback-btn">Feedback</button>
     <h3>${escapeHtml(sessionId)}</h3>
     <span class="meta-info">${rows.length} messages</span>
     <div class="chat-header-counts">${buildTypePillsHtml(headerCounts)}</div>
   `;
-  chatMain.appendChild(header);
 
-  header.querySelector('#chat-reviewed-btn').addEventListener('click', () => toggleReviewed(sessionId));
+  sessionControls.querySelector('#chat-reviewed-btn').addEventListener('click', () => toggleReviewed(sessionId));
 
-  header.querySelector('#chat-feedback-btn').addEventListener('click', () => {
+  sessionControls.querySelector('#chat-feedback-btn').addEventListener('click', () => {
     openFeedbackModal('chat', { session_id: sessionId, message_count: rows.length });
   });
 
@@ -940,9 +940,10 @@ function appendRealtimeMessage(row) {
 
   // Update header message count and type pills
   const session = allSessions.find((s) => s.id === currentSessionId);
-  const metaEl = chatMain.querySelector('.meta-info');
+  const sessionControls = document.getElementById('chat-session-controls');
+  const metaEl = sessionControls && sessionControls.querySelector('.meta-info');
   if (metaEl && session) metaEl.textContent = session.count + ' messages';
-  const pillsEl = chatMain.querySelector('.chat-header-counts');
+  const pillsEl = sessionControls && sessionControls.querySelector('.chat-header-counts');
   if (pillsEl && session) pillsEl.innerHTML = buildTypePillsHtml(session.typeCounts);
 }
 

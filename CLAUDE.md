@@ -13,8 +13,11 @@ The application is a zero-build-step frontend: open `index.html` in a browser an
 ```
 chat-view/
 ├── index.html                              # Single-page app (HTML + all CSS)
-├── app.js                                  # All application logic (~900 lines)
+├── app.js                                  # All application logic (~1170 lines)
+├── config.js                               # Gitignored — Supabase credentials + optional domain restriction
 ├── favicon.svg                             # Eyes emoji favicon
+├── FEATURES.md                             # Feature list and todo tracker
+├── SETUP.md                                # Google OAuth setup guide
 └── supabase/
     ├── functions/
     │   └── chat-feedback/
@@ -30,6 +33,7 @@ chat-view/
 | Frontend | Vanilla JavaScript (ES2020+), HTML5, CSS |
 | Database | Supabase (PostgreSQL) |
 | Backend | Supabase Edge Functions (Deno/TypeScript) |
+| Auth | Supabase Auth with Google OAuth provider |
 | Supabase client | `@supabase/supabase-js@2` via CDN (`jsdelivr`) |
 | Build system | None |
 | Test framework | None |
@@ -145,11 +149,12 @@ The Edge Function:
 
 - **No framework** — plain DOM manipulation with `document.createElement`, `innerHTML`, `addEventListener`
 - **Module pattern** — IIFE `init()` runs on load; no ES modules
-- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta` are top-level variables
+- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta`, `reviewedSessions` are top-level variables
 - **XSS prevention** — all user-supplied or database-sourced text is passed through `escapeHtml()` before setting `innerHTML`. Never set `innerHTML` with raw data.
 - **Pagination** — `loadSessions()` fetches `chat_messages` in pages of 1000 rows using `.range(from, from + pageSize - 1)`
-- **Timezone** — All dates displayed in `'Europe/Chisinau'` timezone (hardcoded constant `TIME_ZONE` at `app.js:883`)
-- **Error handling** — connection errors shown in `#status-log` during login; message errors logged to console
+- **Timezone** — All dates displayed in `'Europe/Chisinau'` timezone (hardcoded constant `TIME_ZONE` near the bottom of `app.js`)
+- **Error handling** — connection errors shown in `#login-error`; message errors logged to console
+- **Status log** — `logStatus()` is a no-op that writes to `console.log` only; the visible status log was removed from the login UI
 
 ### CSS (index.html)
 
@@ -161,8 +166,13 @@ The Edge Function:
 ### HTML Structure
 
 - Two top-level panels: `#login-panel` (flex, visible by default) and `#chat-panel` (hidden until connected, shown via `.active` class)
-- `app.js` is loaded with a cache-busting query param (`?v=15`) — increment this when deploying changes
-- Login panel contains only the "Sign in with Google" button; no credential input fields
+- Inside `#chat-panel`:
+  - `#sidebar` — session list, search, filters
+  - `.chat-area` — wraps the header bar and `#chat-main`:
+    - `#chat-header-bar` — permanent header with `#chat-session-controls` (left, session-specific) and `.chat-header-right` (right: Refresh, user name, Logout)
+    - `#chat-main` — scrollable message area; wiped and repopulated on session switch
+- `app.js` is loaded with a cache-busting query param (`?v=17`) — increment this when deploying changes
+- Login panel contains only the "Sign in with Google" button and `#login-error`; no credential input fields, no status log
 
 ## Filtering Logic
 
@@ -173,20 +183,32 @@ Session filtering in `renderSessionList()`:
 - **Tools** — session must contain **all** selected tools (AND logic)
 - **Categories** — session must match **at least one** selected category (OR logic)
 - **Request types** — session must match **at least one** selected request type (OR logic)
+- **Reviewed** — `all` (no filter) / `reviewed` (only sessions in `reviewedSessions`) / `unreviewed` (only sessions not in the set)
+
+## Mark as Reviewed
+
+Reviewed state is managed client-side (no database writes):
+- `reviewedSessions` — a `Set<string>` of reviewed session IDs, kept in memory
+- Stored in `localStorage` as a JSON array under key `sb_reviewed_<projectId>` (separate per project)
+- Loaded in `loadReviewed()` called during `init()` and `handleRefresh()`
+- Toggled via `toggleReviewed(sessionId)` from the "Mark Reviewed" button in the chat header
+- Sessions in the set show a `reviewed` badge in the session list and a highlighted "Reviewed ✓" button
 
 ## Common Gotchas
 
 1. **Edge function name mismatch**: The file is `supabase/functions/chat-feedback/` but the frontend calls `db.functions.invoke('hyper-processor', ...)`. Ensure the deployed function name on Supabase matches `hyper-processor`.
 
-2. **cache-busting**: `app.js` is loaded as `app.js?v=15`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions.
+2. **Cache-busting**: `app.js` is loaded as `app.js?v=17`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions. Forgetting this has caused runtime errors when HTML and JS are out of sync (e.g. removing a DOM element that old JS still references).
 
-3. **config.js is required**: The login UI no longer has manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`.
+3. **config.js is required**: The login UI has no manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`.
 
 4. **Empty tool_calls array**: AI messages with `tool_calls: []` (empty array) are treated the same as AI messages with no `tool_calls` field at all — they are rendered as final AI responses, not as tool call bubbles.
 
 5. **RLS policies**: The app uses the anon key. If Supabase Row Level Security restricts `chat_messages`, the app will connect successfully but show 0 sessions. The `chat_feedback` table bypasses RLS via the Edge Function's service role key.
 
 6. **Content parsing**: `message.content` in `chat_messages` may be either a string (requiring `JSON.parse`) or already a parsed object. The code handles both cases in `parseMessage()`.
+
+7. **chat-header-bar lives outside chat-main**: `#chat-header-bar` is a sibling of `#chat-main`, not a child. This means it survives `chatMain.innerHTML = ''` calls during session switches and logout. Do not move it inside `#chat-main`.
 
 ## Development Workflow
 
@@ -202,7 +224,7 @@ For Edge Function changes:
 
 ## Git
 
-- Default branch: `claude/consolidate-default-branch-FGKQn`
+- Default branch: `main`
 - No CI/CD pipelines
-- Remote: Gitea instance via local proxy
+- Remote: Gitea instance via local proxy (forwards to GitHub)
 - **Branch creation policy**: Before creating a new branch, always ask the user for confirmation unless explicitly instructed to do so upfront.

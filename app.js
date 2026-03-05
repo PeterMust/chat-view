@@ -391,18 +391,12 @@ function hideLoginError() {
 }
 
 // ── Status Log ──
-const statusLog = document.getElementById('status-log');
-
 function logStatus(msg) {
-  statusLog.style.display = 'block';
-  const time = new Date().toLocaleTimeString();
-  statusLog.innerHTML += `<div>[${time}] ${escapeHtml(msg)}</div>`;
-  statusLog.scrollTop = statusLog.scrollHeight;
+  console.log('[status]', msg);
 }
 
 function clearStatusLog() {
-  statusLog.innerHTML = '';
-  statusLog.style.display = 'none';
+  // no-op: status log removed from UI
 }
 
 // ── Sessions ──

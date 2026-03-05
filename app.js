@@ -1142,7 +1142,7 @@ async function submitFeedback() {
   };
 
   try {
-    const { data, error } = await db.functions.invoke('chat-view', {
+    const { data, error } = await db.functions.invoke('chat-feedback', {
       body: payload,
     });
 

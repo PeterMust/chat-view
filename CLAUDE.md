@@ -123,7 +123,7 @@ AI messages without `tool_calls` (or with an empty array) are treated as final r
 
 ## Edge Function
 
-The `chat-feedback` Edge Function is deployed separately from the frontend. It is invoked by the frontend as `hyper-processor` (note: the function name in the Supabase deployment is `hyper-processor`, not `chat-feedback`).
+The `chat-feedback` Edge Function is deployed separately from the frontend. It is invoked by the frontend as `chat-feedback` (the deployed Supabase slug matches the folder name).
 
 ### Deploy
 
@@ -171,7 +171,7 @@ The Edge Function:
   - `.chat-area` — wraps the header bar and `#chat-main`:
     - `#chat-header-bar` — permanent header with `#chat-session-controls` (left, session-specific) and `.chat-header-right` (right: Refresh, user name, Logout)
     - `#chat-main` — scrollable message area; wiped and repopulated on session switch
-- `app.js` is loaded with a cache-busting query param (`?v=17`) — increment this when deploying changes
+- `app.js` is loaded with a cache-busting query param (`?v=19`) — increment this when deploying changes
 - Login panel contains only the "Sign in with Google" button and `#login-error`; no credential input fields, no status log
 
 ## Filtering Logic
@@ -196,9 +196,9 @@ Reviewed state is managed client-side (no database writes):
 
 ## Common Gotchas
 
-1. **Edge function name mismatch**: The file is `supabase/functions/chat-feedback/` but the frontend calls `db.functions.invoke('hyper-processor', ...)`. Ensure the deployed function name on Supabase matches `hyper-processor`.
+1. **Edge function slug**: The file is `supabase/functions/chat-feedback/` and the frontend calls `db.functions.invoke('chat-feedback', ...)`. The deployed Supabase slug must match — if you redeploy under a different name, update the `invoke` call in `submitFeedback()` (`app.js`) accordingly.
 
-2. **Cache-busting**: `app.js` is loaded as `app.js?v=17`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions. Forgetting this has caused runtime errors when HTML and JS are out of sync (e.g. removing a DOM element that old JS still references).
+2. **Cache-busting**: `app.js` is loaded as `app.js?v=19`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions. Forgetting this has caused runtime errors when HTML and JS are out of sync (e.g. removing a DOM element that old JS still references).
 
 3. **config.js is required**: The login UI has no manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`.
 

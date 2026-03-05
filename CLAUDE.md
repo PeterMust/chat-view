@@ -46,11 +46,20 @@ python3 -m http.server
 # Or just open index.html in a browser
 ```
 
-**Login screen requires:**
-- **Project ID** — the subdomain of your Supabase project (e.g. `abcdefghij` from `abcdefghij.supabase.co`)
-- **Anon Key** — the public anon key from Supabase Dashboard → Project Settings → API
+**Login screen** shows only a "Sign in with Google" button. No credential fields are displayed.
 
-Credentials are saved in `localStorage` under `sb_project_id` and `sb_key`.
+**Credentials must be provided via `config.js`** (gitignored) — the login button will show an error if neither `config.js` nor saved `localStorage` values are present.
+
+```js
+// config.js (gitignored — create this file locally or on the server)
+window.CHAT_VIEW_CONFIG = {
+  projectId: 'your-project-id',   // subdomain of your Supabase project
+  anonKey:   'your-anon-key',     // public anon key from Supabase Dashboard → Project Settings → API
+  // allowedDomains: ['yourcompany.com'],  // optional: restrict to specific email domains
+};
+```
+
+Credentials are persisted in `localStorage` under `sb_project_id` and `sb_key` after the first successful OAuth redirect, so subsequent visits work without re-reading `config.js`.
 
 ## Database Schema
 
@@ -152,7 +161,8 @@ The Edge Function:
 ### HTML Structure
 
 - Two top-level panels: `#login-panel` (flex, visible by default) and `#chat-panel` (hidden until connected, shown via `.active` class)
-- `app.js` is loaded with a cache-busting query param (`?v=9`) — increment this when deploying changes
+- `app.js` is loaded with a cache-busting query param (`?v=15`) — increment this when deploying changes
+- Login panel contains only the "Sign in with Google" button; no credential input fields
 
 ## Filtering Logic
 
@@ -168,13 +178,15 @@ Session filtering in `renderSessionList()`:
 
 1. **Edge function name mismatch**: The file is `supabase/functions/chat-feedback/` but the frontend calls `db.functions.invoke('hyper-processor', ...)`. Ensure the deployed function name on Supabase matches `hyper-processor`.
 
-2. **cache-busting**: `app.js` is loaded as `app.js?v=9`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions.
+2. **cache-busting**: `app.js` is loaded as `app.js?v=15`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions.
 
-3. **Empty tool_calls array**: AI messages with `tool_calls: []` (empty array) are treated the same as AI messages with no `tool_calls` field at all — they are rendered as final AI responses, not as tool call bubbles.
+3. **config.js is required**: The login UI no longer has manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`.
 
-4. **RLS policies**: The app uses the anon key. If Supabase Row Level Security restricts `chat_messages`, the app will connect successfully but show 0 sessions. The `chat_feedback` table bypasses RLS via the Edge Function's service role key.
+4. **Empty tool_calls array**: AI messages with `tool_calls: []` (empty array) are treated the same as AI messages with no `tool_calls` field at all — they are rendered as final AI responses, not as tool call bubbles.
 
-5. **Content parsing**: `message.content` in `chat_messages` may be either a string (requiring `JSON.parse`) or already a parsed object. The code handles both cases in `parseMessage()`.
+5. **RLS policies**: The app uses the anon key. If Supabase Row Level Security restricts `chat_messages`, the app will connect successfully but show 0 sessions. The `chat_feedback` table bypasses RLS via the Edge Function's service role key.
+
+6. **Content parsing**: `message.content` in `chat_messages` may be either a string (requiring `JSON.parse`) or already a parsed object. The code handles both cases in `parseMessage()`.
 
 ## Development Workflow
 

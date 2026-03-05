@@ -10,8 +10,6 @@ let realtimeChannel = null;
 // ── DOM Elements ──
 const loginPanel = document.getElementById('login-panel');
 const chatPanel = document.getElementById('chat-panel');
-const urlInput = document.getElementById('supabase-url');
-const keyInput = document.getElementById('supabase-key');
 const connectBtn = document.getElementById('connect-btn');
 const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
@@ -94,28 +92,10 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
     if (e.target === feedbackOverlay) closeFeedbackModal();
   });
 
-  // Allow Enter to submit login
-  keyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleGoogleSignIn();
-  });
-  urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleGoogleSignIn();
-  });
-
   // ── Try to restore session from config / localStorage ──
   const cfg = window.CHAT_VIEW_CONFIG || {};
   const projectId = cfg.projectId || localStorage.getItem('sb_project_id');
   const key = cfg.anonKey || localStorage.getItem('sb_key');
-
-  // Hide or show credential fields depending on whether config.js is present
-  const credFields = document.getElementById('credential-fields');
-  if (cfg.projectId && cfg.anonKey) {
-    if (credFields) credFields.style.display = 'none';
-  } else {
-    // Pre-fill saved values for manual entry
-    if (projectId) urlInput.value = projectId;
-    if (key) keyInput.value = key;
-  }
 
   if (projectId && key && window.supabase && window.supabase.createClient) {
     initSupabaseClient(projectId, key);
@@ -142,11 +122,11 @@ async function handleGoogleSignIn() {
   }
 
   const cfg = window.CHAT_VIEW_CONFIG || {};
-  let projectId = cfg.projectId || urlInput.value.trim();
-  let key = cfg.anonKey || keyInput.value.trim();
+  let projectId = cfg.projectId || localStorage.getItem('sb_project_id');
+  let key = cfg.anonKey || localStorage.getItem('sb_key');
 
   if (!projectId || !key) {
-    showLoginError('Please enter both Project ID and anon key.');
+    showLoginError('No Supabase credentials configured. Please provide a config.js with projectId and anonKey.');
     return;
   }
 
@@ -168,7 +148,7 @@ async function handleGoogleSignIn() {
   if (error) {
     showLoginError('Failed to start Google sign-in: ' + error.message);
     connectBtn.disabled = false;
-    connectBtn.textContent = 'Sign in with Google';
+    connectBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg> Sign in with Google';
     db = null;
   }
   // On success the browser navigates away; no further code runs here.
@@ -251,7 +231,7 @@ async function afterAuthSuccess(user) {
     currentUser = null;
   } finally {
     connectBtn.disabled = false;
-    connectBtn.textContent = 'Sign in with Google';
+    connectBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg> Sign in with Google';
   }
 }
 
@@ -270,8 +250,6 @@ async function handleLogout() {
   if (userBadge) userBadge.textContent = '';
   chatPanel.classList.remove('active');
   loginPanel.style.display = 'flex';
-  urlInput.value = '';
-  keyInput.value = '';
   sessionList.innerHTML = '';
   chatMain.innerHTML = '<div class="chat-empty">Select a session to view the conversation</div>';
 }

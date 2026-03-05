@@ -6,6 +6,7 @@ let allCategories = []; // unique request categories
 let allRequestTypes = []; // unique request types
 let currentSessionId = null;
 let realtimeChannel = null;
+let environments = []; // parsed from window.CHAT_VIEW_CONFIG
 
 // ── DOM Elements ──
 const loginPanel = document.getElementById('login-panel');
@@ -44,6 +45,8 @@ const fbSubmit = document.getElementById('fb-submit');
 const fbStatus = document.getElementById('fb-status');
 const fbUserName = document.getElementById('fb-user-name');
 const liveBadge = document.getElementById('live-badge');
+const envSelect = document.getElementById('env-select');
+const envSelectorWrap = document.getElementById('env-selector-wrap');
 
 // Hidden metadata for the currently open feedback form
 let feedbackMeta = {};
@@ -92,10 +95,44 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
     if (e.target === feedbackOverlay) closeFeedbackModal();
   });
 
-  // ── Try to restore session from config / localStorage ──
+  // ── Build environments list from config ──
   const cfg = window.CHAT_VIEW_CONFIG || {};
-  const projectId = cfg.projectId || localStorage.getItem('sb_project_id');
-  const key = cfg.anonKey || localStorage.getItem('sb_key');
+  if (Array.isArray(cfg.environments) && cfg.environments.length > 0) {
+    environments = cfg.environments;
+  } else if (cfg.projectId && cfg.anonKey) {
+    // Backward compat: single-env format
+    environments = [{ name: 'Default', projectId: cfg.projectId, anonKey: cfg.anonKey, allowedDomains: cfg.allowedDomains || [] }];
+  }
+
+  // ── Populate environment selector dropdown ──
+  if (environments.length > 1) {
+    envSelect.innerHTML = '';
+    environments.forEach((env, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = env.name || ('Environment ' + (i + 1));
+      envSelect.appendChild(opt);
+    });
+    if (envSelectorWrap) envSelectorWrap.style.display = '';
+  } else {
+    if (envSelectorWrap) envSelectorWrap.style.display = 'none';
+    if (environments.length === 1) {
+      const opt = document.createElement('option');
+      opt.value = 0;
+      opt.textContent = environments[0].name || 'Default';
+      envSelect.appendChild(opt);
+    }
+  }
+
+  // ── Try to restore session from config / localStorage ──
+  const savedEnvIdx = parseInt(localStorage.getItem('sb_selected_env') || '0', 10);
+  const projectId = localStorage.getItem('sb_project_id');
+  const key = localStorage.getItem('sb_key');
+
+  // Restore dropdown selection to match the saved environment
+  if (envSelect && !isNaN(savedEnvIdx) && savedEnvIdx < environments.length) {
+    envSelect.value = savedEnvIdx;
+  }
 
   if (projectId && key && window.supabase && window.supabase.createClient) {
     initSupabaseClient(projectId, key);
@@ -121,18 +158,24 @@ async function handleGoogleSignIn() {
     return;
   }
 
-  const cfg = window.CHAT_VIEW_CONFIG || {};
-  let projectId = cfg.projectId || localStorage.getItem('sb_project_id');
-  let key = cfg.anonKey || localStorage.getItem('sb_key');
+  const selectedIdx = envSelect ? parseInt(envSelect.value || '0', 10) : 0;
+  const selectedEnv = environments[selectedIdx] || environments[0];
+
+  let projectId, key;
+  if (selectedEnv) {
+    projectId = selectedEnv.projectId;
+    key = selectedEnv.anonKey;
+  }
 
   if (!projectId || !key) {
     showLoginError('No Supabase credentials configured. Please provide a config.js with projectId and anonKey.');
     return;
   }
 
-  // Save credentials so they survive the OAuth redirect
+  // Save credentials and selected env index so they survive the OAuth redirect
   localStorage.setItem('sb_project_id', projectId);
   localStorage.setItem('sb_key', key);
+  localStorage.setItem('sb_selected_env', selectedIdx);
 
   hideLoginError();
   connectBtn.disabled = true;
@@ -155,8 +198,9 @@ async function handleGoogleSignIn() {
 }
 
 async function afterAuthSuccess(user) {
-  const cfg = window.CHAT_VIEW_CONFIG || {};
-  const allowedDomains = Array.isArray(cfg.allowedDomains) ? cfg.allowedDomains : [];
+  const savedEnvIdx = parseInt(localStorage.getItem('sb_selected_env') || '0', 10);
+  const activeEnv = environments[savedEnvIdx] || environments[0] || {};
+  const allowedDomains = Array.isArray(activeEnv.allowedDomains) ? activeEnv.allowedDomains : [];
 
   if (allowedDomains.length > 0) {
     const domain = (user.email || '').split('@')[1] || '';
@@ -241,6 +285,7 @@ async function handleLogout() {
   }
   localStorage.removeItem('sb_project_id');
   localStorage.removeItem('sb_key');
+  localStorage.removeItem('sb_selected_env');
   unsubscribeRealtime();
   db = null;
   currentUser = null;

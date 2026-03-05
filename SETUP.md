@@ -13,7 +13,7 @@ Working branch: `claude/auth-feedback-setup-Qlz0k`
 | 2 | YOU | Add app URL to Supabase → Authentication → URL Configuration → Redirect URLs | ⏳ pending |
 | 3 | YOU | Add `https://<project-id>.supabase.co/auth/v1/callback` to Google Cloud Console → Authorized redirect URIs | ⏳ pending |
 | 4 | ME  | Create `config.js` from `config.example.js` (gitignored, local only) | ✅ done |
-| 5 | YOU | Run `supabase/migrations/add_submitted_by_to_chat_feedback.sql` on your DB | ⏳ pending |
+| 5 | YOU | Run `supabase/migrations/add_submitted_by_to_chat_feedback.sql` on your DB | ✅ skipped — `submitted_by` column already exists in table |
 | 6 | YOU | Redeploy Edge Function: `supabase functions deploy chat-feedback --no-verify-jwt` | ⏳ pending |
 
 ---

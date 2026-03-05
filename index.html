@@ -944,8 +944,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load Supabase library from CDN. Check your network or ad blocker.';">
   </script>
-  <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
-  <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
+  <!-- config.js is gitignored — copy config.example.js to config.js and fill in your values -->
+  <script src="config.js" onerror="console.info('config.js not found — sign-in button will show an error.');"></script>
   <script src="app.js?v=15"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>

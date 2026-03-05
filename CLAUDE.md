@@ -14,6 +14,7 @@ The application is a zero-build-step frontend: open `index.html` in a browser an
 chat-view/
 ├── index.html                              # Single-page app (HTML + all CSS)
 ├── app.js                                  # All application logic (~900 lines)
+├── config.example.js                       # Template — copy to config.js and fill in values
 ├── favicon.svg                             # Eyes emoji favicon
 └── supabase/
     ├── functions/
@@ -50,14 +51,7 @@ python3 -m http.server
 
 **Credentials must be provided via `config.js`** (gitignored) — the login button will show an error if neither `config.js` nor saved `localStorage` values are present.
 
-```js
-// config.js (gitignored — create this file locally or on the server)
-window.CHAT_VIEW_CONFIG = {
-  projectId: 'your-project-id',   // subdomain of your Supabase project
-  anonKey:   'your-anon-key',     // public anon key from Supabase Dashboard → Project Settings → API
-  // allowedDomains: ['yourcompany.com'],  // optional: restrict to specific email domains
-};
-```
+Copy `config.example.js` to `config.js` and fill in your values. `config.js` is gitignored and must never be committed.
 
 Credentials are persisted in `localStorage` under `sb_project_id` and `sb_key` after the first successful OAuth redirect, so subsequent visits work without re-reading `config.js`.
 

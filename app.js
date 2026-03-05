@@ -14,7 +14,8 @@ const urlInput = document.getElementById('supabase-url');
 const keyInput = document.getElementById('supabase-key');
 const connectBtn = document.getElementById('connect-btn');
 const loginError = document.getElementById('login-error');
-const disconnectBtn = document.getElementById('disconnect-btn');
+const logoutBtn = document.getElementById('logout-btn');
+const userBadge = document.getElementById('user-badge');
 const refreshBtn = document.getElementById('refresh-btn');
 const sessionSearch = document.getElementById('session-search');
 const sessionCount = document.getElementById('session-count');
@@ -43,25 +44,20 @@ const fbComment = document.getElementById('fb-comment');
 const fbCancel = document.getElementById('fb-cancel');
 const fbSubmit = document.getElementById('fb-submit');
 const fbStatus = document.getElementById('fb-status');
+const fbUserName = document.getElementById('fb-user-name');
 const liveBadge = document.getElementById('live-badge');
 
 // Hidden metadata for the currently open feedback form
 let feedbackMeta = {};
 let reviewedSessions = new Set();
+let currentUser = null; // { id, email, name } — set after Google sign-in
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
 // ── Init ──
-(function init() {
-  const savedProjectId = localStorage.getItem('sb_project_id');
-  const savedKey = localStorage.getItem('sb_key');
-  if (savedProjectId && savedKey) {
-    urlInput.value = savedProjectId;
-    keyInput.value = savedKey;
-  }
-
-  connectBtn.addEventListener('click', handleConnect);
-  disconnectBtn.addEventListener('click', handleDisconnect);
+(async function init() {
+  connectBtn.addEventListener('click', handleGoogleSignIn);
+  logoutBtn.addEventListener('click', handleLogout);
   refreshBtn.addEventListener('click', handleRefresh);
   sessionSearch.addEventListener('input', renderSessionList);
 
@@ -100,73 +96,135 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
 
   // Allow Enter to submit login
   keyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleConnect();
+    if (e.key === 'Enter') handleGoogleSignIn();
   });
   urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleConnect();
+    if (e.key === 'Enter') handleGoogleSignIn();
   });
 
-  console.log('[app.js] Init complete. Event listeners attached.');
+  // ── Try to restore session from config / localStorage ──
+  const cfg = window.CHAT_VIEW_CONFIG || {};
+  const projectId = cfg.projectId || localStorage.getItem('sb_project_id');
+  const key = cfg.anonKey || localStorage.getItem('sb_key');
+
+  // Hide or show credential fields depending on whether config.js is present
+  const credFields = document.getElementById('credential-fields');
+  if (cfg.projectId && cfg.anonKey) {
+    if (credFields) credFields.style.display = 'none';
+  } else {
+    // Pre-fill saved values for manual entry
+    if (projectId) urlInput.value = projectId;
+    if (key) keyInput.value = key;
+  }
+
+  if (projectId && key && window.supabase && window.supabase.createClient) {
+    initSupabaseClient(projectId, key);
+    const { data: { session } } = await db.auth.getSession();
+    if (session && session.user) {
+      await afterAuthSuccess(session.user);
+      return;
+    }
+  }
+
+  console.log('[app.js] Init complete. Showing login panel.');
 })();
 
 // ── Connection ──
-async function handleConnect() {
-  const projectId = urlInput.value.trim();
-  const key = keyInput.value.trim();
+function initSupabaseClient(projectId, key) {
+  const url = 'https://' + projectId + '.supabase.co';
+  db = window.supabase.createClient(url, key);
+}
+
+async function handleGoogleSignIn() {
+  if (!window.supabase || !window.supabase.createClient) {
+    showLoginError('Supabase library failed to load. Check your network or ad blocker.');
+    return;
+  }
+
+  const cfg = window.CHAT_VIEW_CONFIG || {};
+  let projectId = cfg.projectId || urlInput.value.trim();
+  let key = cfg.anonKey || keyInput.value.trim();
 
   if (!projectId || !key) {
     showLoginError('Please enter both Project ID and anon key.');
     return;
   }
 
-  if (!window.supabase || !window.supabase.createClient) {
-    showLoginError('Supabase library failed to load. Check your network or ad blocker.');
-    return;
+  // Save credentials so they survive the OAuth redirect
+  localStorage.setItem('sb_project_id', projectId);
+  localStorage.setItem('sb_key', key);
+
+  hideLoginError();
+  connectBtn.disabled = true;
+  connectBtn.textContent = 'Redirecting to Google...';
+
+  initSupabaseClient(projectId, key);
+
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  });
+
+  if (error) {
+    showLoginError('Failed to start Google sign-in: ' + error.message);
+    connectBtn.disabled = false;
+    connectBtn.textContent = 'Sign in with Google';
+    db = null;
+  }
+  // On success the browser navigates away; no further code runs here.
+}
+
+async function afterAuthSuccess(user) {
+  const cfg = window.CHAT_VIEW_CONFIG || {};
+  const allowedDomains = Array.isArray(cfg.allowedDomains) ? cfg.allowedDomains : [];
+
+  if (allowedDomains.length > 0) {
+    const domain = (user.email || '').split('@')[1] || '';
+    if (!allowedDomains.includes(domain)) {
+      await db.auth.signOut();
+      db = null;
+      showLoginError('Access restricted. Only accounts from ' + allowedDomains.join(', ') + ' are allowed.');
+      return;
+    }
   }
 
-  const url = 'https://' + projectId + '.supabase.co';
+  currentUser = {
+    id: user.id,
+    email: user.email || '',
+    name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || '',
+  };
 
-  connectBtn.disabled = true;
-  connectBtn.textContent = 'Connecting...';
+  if (userBadge) userBadge.textContent = currentUser.name;
+
   hideLoginError();
   clearStatusLog();
+  logStatus('Signed in as ' + currentUser.email + '. Loading sessions...');
 
-  logStatus('Connecting to ' + url + ' ...');
+  connectBtn.disabled = true;
+  connectBtn.textContent = 'Loading...';
 
   try {
-    db = window.supabase.createClient(url, key);
-    logStatus('Supabase client created. Testing connection...');
-
-    // Test connection with a timeout
     const testPromise = db
       .from('chat_messages')
       .select('id', { count: 'exact', head: true });
-
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Connection timed out after 10s. Check your Project ID.')), 10000)
     );
-
     const { count, error } = await Promise.race([testPromise, timeoutPromise]);
 
     if (error) {
       logStatus('ERROR from Supabase: ' + JSON.stringify(error));
       throw error;
     }
-
     logStatus('Connection OK. Row count: ' + (count !== null ? count : 'unknown (RLS may hide count)'));
 
-    // Save credentials
-    localStorage.setItem('sb_project_id', projectId);
-    localStorage.setItem('sb_key', key);
-
-    // Load sessions BEFORE switching panels so the user can see progress
     logStatus('Loading sessions...');
     const sessions = await loadSessions();
 
     if (sessions === false) {
-      // loadSessions encountered an error, stay on login
       logStatus('Failed to load sessions. Staying on login screen.');
       db = null;
+      currentUser = null;
       return;
     }
 
@@ -174,13 +232,13 @@ async function handleConnect() {
       logStatus('Connected but no sessions found. Table may be empty or restricted by RLS.');
       showLoginError('Connected successfully, but no sessions found. The chat_messages table may be empty or restricted by RLS policies.');
       db = null;
+      currentUser = null;
       return;
     }
 
     logStatus('Loaded ' + allSessions.length + ' sessions. Switching to chat view...');
     loadReviewed();
 
-    // Now switch to chat panel
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
     populateFilters();
@@ -190,20 +248,26 @@ async function handleConnect() {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
     db = null;
+    currentUser = null;
   } finally {
     connectBtn.disabled = false;
-    connectBtn.textContent = 'Connect';
+    connectBtn.textContent = 'Sign in with Google';
   }
 }
 
-function handleDisconnect() {
+async function handleLogout() {
+  if (db) {
+    await db.auth.signOut().catch(() => {});
+  }
   localStorage.removeItem('sb_project_id');
   localStorage.removeItem('sb_key');
   unsubscribeRealtime();
   db = null;
+  currentUser = null;
   allSessions = [];
   currentSessionId = null;
   reviewedSessions = new Set();
+  if (userBadge) userBadge.textContent = '';
   chatPanel.classList.remove('active');
   loginPanel.style.display = 'flex';
   urlInput.value = '';
@@ -1015,6 +1079,7 @@ function openFeedbackModal(type, meta) {
   fbSubtitle.textContent = type === 'chat'
     ? 'About chat session: ' + (meta.session_id || '').substring(0, 24) + '...'
     : 'About ' + (meta.message_type || '') + ' message at ' + formatTime(meta.message_timestamp);
+  if (fbUserName) fbUserName.textContent = currentUser ? (currentUser.name || currentUser.email) : 'Unknown';
   feedbackOverlay.classList.add('open');
 }
 
@@ -1054,6 +1119,7 @@ async function submitFeedback() {
     tool_name: feedbackMeta.tool_name,
     message_count: feedbackMeta.message_count,
     raw_message: feedbackMeta.raw,
+    submitted_by: currentUser?.email ?? null,
     submitted_at: new Date().toISOString(),
   };
 

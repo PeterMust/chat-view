@@ -83,7 +83,7 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] Per-session feedback: "Feedback" button in chat header session controls
 - [x] Per-message feedback: hover button (💬) on every message bubble
 - [x] Feedback modal with category select (bug / suggestion / praise / other) and free-text comment
-- [x] Feedback submitted to Supabase Edge Function (`hyper-processor`) with full message metadata and signed-in user email
+- [x] Feedback submitted to Supabase Edge Function (`chat-feedback`) with full message metadata and signed-in user email
 - [x] Edge Function stores feedback in `chat_feedback` table (service role key bypasses RLS)
 - [x] Edge Function optionally forwards feedback to n8n webhook (`VA_FEEDBACK_FORM_WEBHOOK`)
 - [x] Success/error status shown in modal after submission
@@ -94,7 +94,7 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] WhatsApp-inspired design with CSS custom properties for theming
 - [x] Responsive layout: sidebar overlays at ≤768px
 - [x] Collapsible tool call / tool result details (`<details>` element)
-- [x] Cache-busting query param on `app.js` (`?v=17`) — increment when deploying
+- [x] Cache-busting query param on `app.js` (`?v=19`) — increment when deploying
 - [x] Global JS error handler shows errors in the browser console
 - [x] CDN load error handler for Supabase library (error shown in `#login-error`)
 

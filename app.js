@@ -1125,9 +1125,13 @@ async function submitFeedback() {
   fbStatus.textContent = 'Submitting...';
   fbStatus.className = 'fb-status';
 
+  const envIdx = parseInt(localStorage.getItem('sb_selected_env') || '0', 10);
+  const envName = (environments[envIdx] || environments[0] || {}).name || 'Default';
+
   const payload = {
     category,
     comment,
+    env: envName,
     feedback_type: feedbackMeta.type, // 'chat' or 'message'
     session_id: feedbackMeta.session_id,
     message_index: feedbackMeta.message_index,

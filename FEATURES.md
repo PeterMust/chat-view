@@ -10,13 +10,16 @@ Update this file whenever a feature is added, changed, or completed.
 ### Authentication & Connection
 - [x] Google OAuth sign-in via Supabase Auth (no manual credential input fields)
 - [x] Credentials (`projectId`, `anonKey`) loaded from `config.js` (`window.CHAT_VIEW_CONFIG`) or `localStorage`
-- [x] Credentials persisted in `localStorage` (`sb_project_id`, `sb_key`) across page reloads and OAuth redirects
+- [x] **Multi-environment support** — `config.js` accepts an `environments` array; login card shows a named dropdown when 2+ environments are configured, hidden for single-env setups
+- [x] Per-environment `allowedDomains` — each environment can restrict sign-in to different email domains
+- [x] Credentials and selected environment index persisted in `localStorage` (`sb_project_id`, `sb_key`, `sb_selected_env`) across page reloads and OAuth redirects
+- [x] Environment dropdown selection restored on page reload and after OAuth redirect
 - [x] Session restored automatically on page load if a valid Supabase session exists
 - [x] Optional domain restriction via `config.js` `allowedDomains` array — sign-out forced if domain not allowed
 - [x] Connection test with 10-second timeout before switching to chat view
 - [x] Clear error messages for failed connections (timeout, bad credentials, RLS, domain restriction)
-- [x] Logout button clears auth session and returns to login screen
-- [x] Login card shows only the Google sign-in button and an error area (no credential fields, no status log)
+- [x] Logout button clears auth session, selected environment, and returns to login screen
+- [x] Login card shows the Google sign-in button, an error area, and the optional environment selector (no credential fields, no status log)
 
 ### Navigation & Header
 - [x] Permanent chat header bar (`#chat-header-bar`) outside `#chat-main`, always visible after login

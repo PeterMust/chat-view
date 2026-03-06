@@ -14,7 +14,7 @@ The application is a zero-build-step frontend: open `index.html` in a browser an
 chat-view/
 ├── index.html                              # Single-page app (HTML + all CSS)
 ├── app.js                                  # All application logic (~1170 lines)
-├── config.js                               # Gitignored — Supabase credentials + optional domain restriction
+├── config.js                               # Gitignored — Supabase credentials, multi-env config + optional domain restriction
 ├── favicon.svg                             # Eyes emoji favicon
 ├── FEATURES.md                             # Feature list and todo tracker
 ├── SETUP.md                                # Google OAuth setup guide
@@ -54,8 +54,10 @@ python3 -m http.server
 
 **Credentials must be provided via `config.js`** (gitignored) — the login button will show an error if neither `config.js` nor saved `localStorage` values are present.
 
+`config.js` supports two formats:
+
 ```js
-// config.js (gitignored — create this file locally or on the server)
+// Single-environment format (original, backward compatible)
 window.CHAT_VIEW_CONFIG = {
   projectId: 'your-project-id',   // subdomain of your Supabase project
   anonKey:   'your-anon-key',     // public anon key from Supabase Dashboard → Project Settings → API
@@ -63,7 +65,19 @@ window.CHAT_VIEW_CONFIG = {
 };
 ```
 
-Credentials are persisted in `localStorage` under `sb_project_id` and `sb_key` after the first successful OAuth redirect, so subsequent visits work without re-reading `config.js`.
+```js
+// Multi-environment format — shows a named dropdown on the login screen
+window.CHAT_VIEW_CONFIG = {
+  environments: [
+    { name: 'Staging',    projectId: 'staging-id',    anonKey: 'staging-key',    allowedDomains: [] },
+    { name: 'Production', projectId: 'prod-id',       anonKey: 'prod-key',       allowedDomains: ['yourcompany.com'] },
+  ]
+};
+```
+
+When `environments` has 2+ entries, an **"Environment"** `<select>` dropdown appears on the login card above the Google sign-in button. With only 1 entry (or the single-env format), the dropdown is hidden.
+
+Credentials and the selected environment index are persisted in `localStorage` (`sb_project_id`, `sb_key`, `sb_selected_env`) after the first successful OAuth redirect, so subsequent visits restore the correct environment without re-reading `config.js`.
 
 ## Database Schema
 
@@ -149,7 +163,7 @@ The Edge Function:
 
 - **No framework** — plain DOM manipulation with `document.createElement`, `innerHTML`, `addEventListener`
 - **Module pattern** — IIFE `init()` runs on load; no ES modules
-- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta`, `reviewedSessions` are top-level variables
+- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta`, `reviewedSessions`, `environments` are top-level variables
 - **XSS prevention** — all user-supplied or database-sourced text is passed through `escapeHtml()` before setting `innerHTML`. Never set `innerHTML` with raw data.
 - **Pagination** — `loadSessions()` fetches `chat_messages` in pages of 1000 rows using `.range(from, from + pageSize - 1)`
 - **Timezone** — All dates displayed in `'Europe/Chisinau'` timezone (hardcoded constant `TIME_ZONE` near the bottom of `app.js`)
@@ -172,7 +186,7 @@ The Edge Function:
     - `#chat-header-bar` — permanent header with `#chat-session-controls` (left, session-specific) and `.chat-header-right` (right: Refresh, user name, Logout)
     - `#chat-main` — scrollable message area; wiped and repopulated on session switch
 - `app.js` is loaded with a cache-busting query param (`?v=17`) — increment this when deploying changes
-- Login panel contains only the "Sign in with Google" button and `#login-error`; no credential input fields, no status log
+- Login panel contains the "Sign in with Google" button, `#login-error`, and optionally `#env-selector-wrap` (the environment dropdown, shown only when 2+ environments are configured)
 
 ## Filtering Logic
 
@@ -200,7 +214,7 @@ Reviewed state is managed client-side (no database writes):
 
 2. **Cache-busting**: `app.js` is loaded as `app.js?v=17`. Increment the version number when deploying updated `app.js` to avoid browsers serving stale cached versions. Forgetting this has caused runtime errors when HTML and JS are out of sync (e.g. removing a DOM element that old JS still references).
 
-3. **config.js is required**: The login UI has no manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`.
+3. **config.js is required**: The login UI has no manual credential input fields. If `config.js` is absent and no credentials are saved in `localStorage`, the Google sign-in button will display an error. Always deploy `config.js` alongside `index.html`. Use the multi-env `environments` array format to expose a named dropdown for multiple Supabase projects.
 
 4. **Empty tool_calls array**: AI messages with `tool_calls: []` (empty array) are treated the same as AI messages with no `tool_calls` field at all — they are rendered as final AI responses, not as tool call bubbles.
 

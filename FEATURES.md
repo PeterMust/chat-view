@@ -16,6 +16,8 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] Environment dropdown selection restored on page reload and after OAuth redirect
 - [x] Session restored automatically on page load if a valid Supabase session exists
 - [x] Optional domain restriction via `config.js` `allowedDomains` array — sign-out forced if domain not allowed
+- [x] **User/admin roles** — every signed-in user must have a row in `chat_view_user_roles`; access denied (immediate sign-out) if no row exists
+- [x] **Auth bypass prevention** — `fetchOrCreateUserRole()` is called before the chat panel is shown; removed users can no longer access the app
 - [x] Connection test with 10-second timeout before switching to chat view
 - [x] Clear error messages for failed connections (timeout, bad credentials, RLS, domain restriction)
 - [x] Logout button clears auth session, selected environment, and returns to login screen
@@ -48,6 +50,13 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] Reviewed sessions show a `reviewed` badge in the session list
 - [x] Reviewed state stored in `localStorage` (key `sb_reviewed_<projectId>`, persisted as JSON array)
 - [x] Reviewed state loaded on init and on every refresh
+
+### User Management (Admin)
+- [x] Admin users see an **Invite** button in the sidebar header (hidden for non-admins)
+- [x] Invite button opens an admin settings modal showing the signed-in user's name and role
+- [x] Admin can invite a new user by email and assign them a `user` or `admin` role
+- [x] If the email already has a Supabase Auth account, only the role is updated (no duplicate invite sent)
+- [x] Invite logic handled by `invite-user` Edge Function (admin-only, requires valid JWT + admin role check)
 
 ### Filtering & Search
 - [x] Text search: substring match on `session_id`
@@ -83,7 +92,7 @@ Update this file whenever a feature is added, changed, or completed.
 - [x] Per-session feedback: "Feedback" button in chat header session controls
 - [x] Per-message feedback: hover button (💬) on every message bubble
 - [x] Feedback modal with category select (bug / suggestion / praise / other) and free-text comment
-- [x] Feedback submitted to Supabase Edge Function (`chat-feedback`) with full message metadata and signed-in user email
+- [x] Feedback submitted to Supabase Edge Function (`chat-feedback`) with full message metadata, signed-in user email, and active environment name (`env` field)
 - [x] Edge Function stores feedback in `chat_feedback` table (service role key bypasses RLS)
 - [x] Edge Function optionally forwards feedback to n8n webhook (`VA_FEEDBACK_FORM_WEBHOOK`)
 - [x] Success/error status shown in modal after submission

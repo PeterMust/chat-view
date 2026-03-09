@@ -275,6 +275,11 @@ async function afterAuthSuccess(user) {
     }
     logStatus('Connection OK. Row count: ' + (count !== null ? count : 'unknown (RLS may hide count)'));
 
+    const authorized = await fetchOrCreateUserRole();
+    if (!authorized) return;
+
+    loadReviewed();
+
     logStatus('Loading sessions...');
     const periodDays = parseInt(loadPeriodSelect.value, 10);
     const fromDateStr = periodDays === 0 ? null : (() => {
@@ -301,11 +306,6 @@ async function afterAuthSuccess(user) {
     }
 
     logStatus('Loaded ' + allSessions.length + ' sessions. Switching to chat view...');
-    loadReviewed();
-
-    const authorized = await fetchOrCreateUserRole();
-    if (!authorized) return;
-
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
     populateFilters();

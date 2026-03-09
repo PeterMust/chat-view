@@ -62,6 +62,7 @@ let feedbackMeta = {};
 let reviewedSessions = new Set();
 let currentUser = null; // { id, email, name } — set after Google sign-in
 let currentUserRole = null; // 'user' | 'admin' | null
+let loadedFromDate = null; // earliest created_at sent to server in last loadSessions() call
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
@@ -77,7 +78,7 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
     filterToggle.classList.toggle('open');
     filterPanel.classList.toggle('open');
   });
-  filterDateFrom.addEventListener('change', renderSessionList);
+  filterDateFrom.addEventListener('change', handleDateFromChange);
   filterDateTo.addEventListener('change', renderSessionList);
   filterMsgMin.addEventListener('input', renderSessionList);
   filterMsgMax.addEventListener('input', renderSessionList);
@@ -331,7 +332,7 @@ async function handleRefresh() {
   refreshBtn.disabled = true;
   refreshBtn.textContent = 'Refreshing...';
   sessionCount.textContent = 'Refreshing sessions...';
-  await loadSessions();
+  await loadSessions(filterDateFrom.value || defaultFromDate());
   if (allSessions.length > 0) {
     populateFilters();
     renderSessionList();
@@ -469,8 +470,9 @@ function clearStatusLog() {
 }
 
 // ── Sessions ──
-async function loadSessions() {
-  // Fetch all rows in pages of 1000 (Supabase default limit)
+async function loadSessions(fromDateStr = defaultFromDate()) {
+  // Fetch rows in pages of 1000, filtered to fromDateStr onwards
+  loadedFromDate = fromDateStr;
   const sessionMap = {};
   let from = 0;
   const pageSize = 1000;
@@ -485,6 +487,7 @@ async function loadSessions() {
     const { data, error } = await db
       .from('chat_messages')
       .select('session_id, created_at, message')
+      .gte('created_at', fromDateStr)
       .range(from, from + pageSize - 1);
 
     if (error) {
@@ -578,6 +581,11 @@ async function loadSessions() {
   allCategories = Array.from(globalCategorySet).sort();
   allRequestTypes = Array.from(globalRequestTypeSet).sort();
 
+  // Pre-populate the from-date filter to reflect what was actually loaded
+  if (!filterDateFrom.value || filterDateFrom.value > fromDateStr) {
+    filterDateFrom.value = fromDateStr;
+  }
+
   return true;
 }
 
@@ -618,6 +626,16 @@ function clearFilters() {
   filterRequestTypeTrigger.textContent = 'All types';
   filterSort.value = 'newest';
   filterReviewed.value = 'all';
+  renderSessionList();
+}
+
+async function handleDateFromChange() {
+  const picked = filterDateFrom.value; // 'YYYY-MM-DD' or ''
+  // Re-fetch from server only when the user picks a date earlier than the loaded window
+  if (!picked || !loadedFromDate || picked < loadedFromDate) {
+    await loadSessions(picked || defaultFromDate());
+    populateFilters();
+  }
   renderSessionList();
 }
 
@@ -1230,6 +1248,13 @@ function escapeHtml(str) {
 }
 
 const TIME_ZONE = 'Europe/Chisinau';
+const LOAD_DAYS_DEFAULT = 7; // days of history to load on initial/default fetch
+
+function defaultFromDate() {
+  const d = new Date();
+  d.setDate(d.getDate() - LOAD_DAYS_DEFAULT);
+  return d.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+}
 
 function formatDate(isoStr) {
   if (!isoStr) return '';

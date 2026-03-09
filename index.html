@@ -155,28 +155,6 @@
       gap: 8px;
     }
 
-    /* Admin gear button */
-    .admin-settings-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 18px;
-      color: var(--text-secondary);
-      line-height: 1;
-      padding: 4px;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s, color 0.15s;
-    }
-    .admin-settings-btn:hover {
-      background: var(--bg);
-      color: var(--accent);
-    }
-
     /* Admin Settings Modal */
     .admin-modal-overlay {
       position: fixed;
@@ -1061,7 +1039,7 @@
       <div class="sidebar-header">
         <h2>Sessions</h2>
         <div class="sidebar-header-right">
-          <button id="admin-settings-btn" class="admin-settings-btn" title="Admin Settings" style="display:none">⚙</button>
+          <button id="admin-settings-btn" class="disconnect-btn" style="display:none">Invite</button>
           <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
         </div>
       </div>
@@ -1222,7 +1200,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=21"
+  <script src="app.js?v=24"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

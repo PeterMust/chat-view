@@ -281,12 +281,14 @@ async function afterAuthSuccess(user) {
     logStatus('Loaded ' + allSessions.length + ' sessions. Switching to chat view...');
     loadReviewed();
 
+    const authorized = await fetchOrCreateUserRole();
+    if (!authorized) return;
+
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
     populateFilters();
     renderSessionList();
     subscribeRealtime();
-    fetchOrCreateUserRole();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
@@ -1250,7 +1252,7 @@ function formatTime(isoStr) {
 
 // ── User Roles ──
 async function fetchOrCreateUserRole() {
-  if (!db || !currentUser) return;
+  if (!db || !currentUser) return false;
   try {
     const { data, error } = await db
       .from('chat_view_user_roles')
@@ -1259,22 +1261,26 @@ async function fetchOrCreateUserRole() {
       .single();
 
     if (error || !data) {
-      // No row yet — the DB trigger should have created one; log and default to 'user'
-      console.warn('[roles] No role row found, defaulting to user:', error?.message);
-      currentUserRole = 'user';
-    } else {
-      currentUserRole = data.role;
+      // No role row — user has been removed; revoke access
+      await db.auth.signOut();
+      db = null;
+      currentUser = null;
+      showLoginError('Access denied. Your account has been removed from this application.');
+      return false;
     }
+
+    currentUserRole = data.role;
+    updateAdminButton();
+    return true;
   } catch (err) {
     console.warn('[roles] fetchOrCreateUserRole failed:', err);
-    currentUserRole = 'user';
+    return false;
   }
-  updateAdminButton();
 }
 
 function updateAdminButton() {
   if (!adminSettingsBtn) return;
-  adminSettingsBtn.style.display = currentUserRole === 'admin' ? 'flex' : 'none';
+  adminSettingsBtn.style.display = currentUserRole === 'admin' ? '' : 'none';
 }
 
 function openAdminModal() {

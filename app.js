@@ -53,6 +53,7 @@ const adminModalClose = document.getElementById('admin-modal-close');
 const adminInfoName = document.getElementById('admin-info-name');
 const adminInfoRole = document.getElementById('admin-info-role');
 const adminInviteEmail = document.getElementById('admin-invite-email');
+const adminInviteRole = document.getElementById('admin-invite-role');
 const adminInviteBtn = document.getElementById('admin-invite-btn');
 const adminInviteStatus = document.getElementById('admin-invite-status');
 
@@ -110,7 +111,7 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   adminModalOverlay.addEventListener('click', (e) => {
     if (e.target === adminModalOverlay) closeAdminModal();
   });
-  adminInviteBtn.addEventListener('click', () => inviteUser(adminInviteEmail.value.trim()));
+  adminInviteBtn.addEventListener('click', () => inviteUser(adminInviteEmail.value.trim(), adminInviteRole.value));
 
   // ── Build environments list from config ──
   const cfg = window.CHAT_VIEW_CONFIG || {};
@@ -1285,6 +1286,7 @@ function openAdminModal() {
       (currentUserRole === 'admin' ? ' role-admin' : '');
   }
   if (adminInviteEmail) adminInviteEmail.value = '';
+  if (adminInviteRole) adminInviteRole.value = 'user';
   if (adminInviteStatus) { adminInviteStatus.textContent = ''; adminInviteStatus.className = 'admin-invite-status'; }
   adminModalOverlay.style.display = 'flex';
 }
@@ -1293,24 +1295,26 @@ function closeAdminModal() {
   if (adminModalOverlay) adminModalOverlay.style.display = 'none';
 }
 
-async function inviteUser(email) {
+async function inviteUser(email, role) {
   if (!email || !email.includes('@')) {
     adminInviteStatus.textContent = 'Please enter a valid email address.';
     adminInviteStatus.className = 'admin-invite-status error';
     return;
   }
+  const assignedRole = role === 'admin' ? 'admin' : 'user';
   adminInviteBtn.disabled = true;
   adminInviteStatus.textContent = 'Sending invitation...';
   adminInviteStatus.className = 'admin-invite-status';
   try {
     const { data, error } = await db.functions.invoke('invite-user', {
-      body: { email },
+      body: { email, role: assignedRole },
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    adminInviteStatus.textContent = 'Invitation sent to ' + email;
+    adminInviteStatus.textContent = 'Invitation sent to ' + email + ' as ' + assignedRole;
     adminInviteStatus.className = 'admin-invite-status success';
     adminInviteEmail.value = '';
+    if (adminInviteRole) adminInviteRole.value = 'user';
   } catch (err) {
     console.error('[roles] inviteUser error:', err);
     adminInviteStatus.textContent = 'Failed: ' + (err.message || 'Unknown error');

@@ -56,16 +56,17 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { email } = await req.json()
+    const { email, role: requestedRole } = await req.json()
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return new Response(
         JSON.stringify({ error: 'Valid email is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    const assignedRole = requestedRole === 'admin' ? 'admin' : 'user'
 
     // Send invitation via Supabase Admin API
-    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email)
+    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email)
 
     if (inviteError) {
       console.error('Invite error:', inviteError)
@@ -75,10 +76,22 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    console.log(`Admin ${user.email} invited ${email}`)
+    // Upsert the role now — the invite returns the user ID immediately
+    // even before the user accepts the invitation
+    if (inviteData?.user?.id) {
+      const { error: roleError } = await adminClient
+        .from('chat_view_user_roles')
+        .upsert(
+          { user_id: inviteData.user.id, email, role: assignedRole },
+          { onConflict: 'user_id' }
+        )
+      if (roleError) console.error('Role upsert error:', roleError)
+    }
+
+    console.log(`Admin ${user.email} invited ${email} as ${assignedRole}`)
 
     return new Response(
-      JSON.stringify({ success: true, invited: email }),
+      JSON.stringify({ success: true, invited: email, role: assignedRole }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {

@@ -268,7 +268,19 @@
     .admin-invite-row {
       display: flex;
       gap: 8px;
+      align-items: center;
     }
+    .admin-invite-role {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .admin-invite-role:focus { border-color: var(--accent); }
     .admin-invite-input {
       flex: 1;
       padding: 8px 10px;
@@ -1178,6 +1190,10 @@
           <label class="admin-invite-label" for="admin-invite-email">Invite user by email</label>
           <div class="admin-invite-row">
             <input type="email" id="admin-invite-email" class="admin-invite-input" placeholder="user@anydomain.com">
+            <select id="admin-invite-role" class="admin-invite-role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
             <button id="admin-invite-btn" class="btn admin-invite-btn">Invite</button>
           </div>
           <div id="admin-invite-status" class="admin-invite-status"></div>

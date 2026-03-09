@@ -47,11 +47,20 @@ const fbUserName = document.getElementById('fb-user-name');
 const liveBadge = document.getElementById('live-badge');
 const envSelect = document.getElementById('env-select');
 const envSelectorWrap = document.getElementById('env-selector-wrap');
+const adminSettingsBtn = document.getElementById('admin-settings-btn');
+const adminModalOverlay = document.getElementById('admin-modal-overlay');
+const adminModalClose = document.getElementById('admin-modal-close');
+const adminInfoName = document.getElementById('admin-info-name');
+const adminInfoRole = document.getElementById('admin-info-role');
+const adminInviteEmail = document.getElementById('admin-invite-email');
+const adminInviteBtn = document.getElementById('admin-invite-btn');
+const adminInviteStatus = document.getElementById('admin-invite-status');
 
 // Hidden metadata for the currently open feedback form
 let feedbackMeta = {};
 let reviewedSessions = new Set();
 let currentUser = null; // { id, email, name } — set after Google sign-in
+let currentUserRole = null; // 'user' | 'admin' | null
 
 console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase && window.supabase.createClient));
 
@@ -94,6 +103,14 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   feedbackOverlay.addEventListener('click', (e) => {
     if (e.target === feedbackOverlay) closeFeedbackModal();
   });
+
+  // Admin settings modal
+  adminSettingsBtn.addEventListener('click', openAdminModal);
+  adminModalClose.addEventListener('click', closeAdminModal);
+  adminModalOverlay.addEventListener('click', (e) => {
+    if (e.target === adminModalOverlay) closeAdminModal();
+  });
+  adminInviteBtn.addEventListener('click', () => inviteUser(adminInviteEmail.value.trim()));
 
   // ── Build environments list from config ──
   const cfg = window.CHAT_VIEW_CONFIG || {};
@@ -268,6 +285,7 @@ async function afterAuthSuccess(user) {
     populateFilters();
     renderSessionList();
     subscribeRealtime();
+    fetchOrCreateUserRole();
   } catch (err) {
     logStatus('FAILED: ' + (err.message || String(err)));
     showLoginError('Connection failed: ' + (err.message || 'Check your credentials.'));
@@ -289,10 +307,13 @@ async function handleLogout() {
   unsubscribeRealtime();
   db = null;
   currentUser = null;
+  currentUserRole = null;
   allSessions = [];
   currentSessionId = null;
   reviewedSessions = new Set();
   if (userBadge) userBadge.textContent = '';
+  if (adminSettingsBtn) adminSettingsBtn.style.display = 'none';
+  closeAdminModal();
   const sc = document.getElementById('chat-session-controls');
   if (sc) sc.innerHTML = '';
   chatPanel.classList.remove('active');
@@ -1224,4 +1245,77 @@ function formatTime(isoStr) {
     second: '2-digit',
     timeZone: TIME_ZONE,
   });
+}
+
+// ── User Roles ──
+async function fetchOrCreateUserRole() {
+  if (!db || !currentUser) return;
+  try {
+    const { data, error } = await db
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (error || !data) {
+      // No row yet — the DB trigger should have created one; log and default to 'user'
+      console.warn('[roles] No role row found, defaulting to user:', error?.message);
+      currentUserRole = 'user';
+    } else {
+      currentUserRole = data.role;
+    }
+  } catch (err) {
+    console.warn('[roles] fetchOrCreateUserRole failed:', err);
+    currentUserRole = 'user';
+  }
+  updateAdminButton();
+}
+
+function updateAdminButton() {
+  if (!adminSettingsBtn) return;
+  adminSettingsBtn.style.display = currentUserRole === 'admin' ? 'flex' : 'none';
+}
+
+function openAdminModal() {
+  if (!adminModalOverlay) return;
+  if (adminInfoName) adminInfoName.textContent = currentUser?.name || '';
+  if (adminInfoRole) {
+    adminInfoRole.textContent = currentUserRole || 'user';
+    adminInfoRole.className = 'admin-info-value admin-role-badge' +
+      (currentUserRole === 'admin' ? ' role-admin' : '');
+  }
+  if (adminInviteEmail) adminInviteEmail.value = '';
+  if (adminInviteStatus) { adminInviteStatus.textContent = ''; adminInviteStatus.className = 'admin-invite-status'; }
+  adminModalOverlay.style.display = 'flex';
+}
+
+function closeAdminModal() {
+  if (adminModalOverlay) adminModalOverlay.style.display = 'none';
+}
+
+async function inviteUser(email) {
+  if (!email || !email.includes('@')) {
+    adminInviteStatus.textContent = 'Please enter a valid email address.';
+    adminInviteStatus.className = 'admin-invite-status error';
+    return;
+  }
+  adminInviteBtn.disabled = true;
+  adminInviteStatus.textContent = 'Sending invitation...';
+  adminInviteStatus.className = 'admin-invite-status';
+  try {
+    const { data, error } = await db.functions.invoke('invite-user', {
+      body: { email },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    adminInviteStatus.textContent = 'Invitation sent to ' + email;
+    adminInviteStatus.className = 'admin-invite-status success';
+    adminInviteEmail.value = '';
+  } catch (err) {
+    console.error('[roles] inviteUser error:', err);
+    adminInviteStatus.textContent = 'Failed: ' + (err.message || 'Unknown error');
+    adminInviteStatus.className = 'admin-invite-status error';
+  } finally {
+    adminInviteBtn.disabled = false;
+  }
 }

@@ -101,13 +101,20 @@ Deno.serve(async (req: Request) => {
     // Upsert the role now — the invite returns the user ID immediately
     // even before the user accepts the invitation
     if (inviteData?.user?.id) {
+      const now = new Date().toISOString()
       const { error: roleError } = await adminClient
         .from('chat_view_user_roles')
         .upsert(
-          { user_id: inviteData.user.id, email, role: assignedRole },
+          { user_id: inviteData.user.id, email, role: assignedRole, updated_at: now },
           { onConflict: 'user_id' }
         )
-      if (roleError) console.error('Role upsert error:', roleError)
+      if (roleError) {
+        console.error('Role upsert error:', roleError)
+        return new Response(
+          JSON.stringify({ error: 'User invited but role could not be assigned: ' + roleError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     console.log(`Admin ${user.email} invited ${email} as ${assignedRole}`)

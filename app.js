@@ -47,6 +47,11 @@ const fbUserName = document.getElementById('fb-user-name');
 const liveBadge = document.getElementById('live-badge');
 const envSelect = document.getElementById('env-select');
 const envSelectorWrap = document.getElementById('env-selector-wrap');
+const loadPeriodSelect = document.getElementById('load-period-select');
+const loadPeriodWarning = document.getElementById('load-period-warning');
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadProgressBar = document.getElementById('load-progress-bar');
+const loadProgressText = document.getElementById('load-progress-text');
 const adminSettingsBtn = document.getElementById('admin-settings-btn');
 const adminModalOverlay = document.getElementById('admin-modal-overlay');
 const adminModalClose = document.getElementById('admin-modal-close');
@@ -113,6 +118,15 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
     if (e.target === adminModalOverlay) closeAdminModal();
   });
   adminInviteBtn.addEventListener('click', () => inviteUser(adminInviteEmail.value.trim(), adminInviteRole.value));
+
+  // ── Restore saved load period ──
+  const savedPeriod = localStorage.getItem('sb_load_period');
+  if (savedPeriod !== null) loadPeriodSelect.value = savedPeriod;
+  handlePeriodWarning();
+  loadPeriodSelect.addEventListener('change', () => {
+    localStorage.setItem('sb_load_period', loadPeriodSelect.value);
+    handlePeriodWarning();
+  });
 
   // ── Build environments list from config ──
   const cfg = window.CHAT_VIEW_CONFIG || {};
@@ -262,7 +276,15 @@ async function afterAuthSuccess(user) {
     logStatus('Connection OK. Row count: ' + (count !== null ? count : 'unknown (RLS may hide count)'));
 
     logStatus('Loading sessions...');
-    const sessions = await loadSessions();
+    const periodDays = parseInt(loadPeriodSelect.value, 10);
+    const fromDateStr = periodDays === 0 ? null : (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - periodDays);
+      return d.toISOString().slice(0, 10);
+    })();
+    loadingOverlay.style.display = 'flex';
+    const sessions = await loadSessions(fromDateStr);
+    loadingOverlay.style.display = 'none';
 
     if (sessions === false) {
       logStatus('Failed to load sessions. Staying on login screen.');
@@ -332,7 +354,9 @@ async function handleRefresh() {
   refreshBtn.disabled = true;
   refreshBtn.textContent = 'Refreshing...';
   sessionCount.textContent = 'Refreshing sessions...';
+  loadingOverlay.style.display = 'flex';
   await loadSessions(filterDateFrom.value || defaultFromDate());
+  loadingOverlay.style.display = 'none';
   if (allSessions.length > 0) {
     populateFilters();
     renderSessionList();
@@ -476,19 +500,29 @@ async function loadSessions(fromDateStr = defaultFromDate()) {
   const sessionMap = {};
   let from = 0;
   const pageSize = 1000;
-  let totalRows = 0;
+  let rowsLoaded = 0;
   const globalToolSet = new Set();
   const globalCategorySet = new Set();
   const globalRequestTypeSet = new Set();
 
+  // Count total rows first so we can show accurate progress
+  let totalCount = 0;
+  {
+    let countQuery = db.from('chat_messages').select('*', { count: 'exact', head: true });
+    if (fromDateStr) countQuery = countQuery.gte('created_at', fromDateStr);
+    const { count } = await countQuery;
+    totalCount = count ?? 0;
+  }
+  updateLoadProgress(0, totalCount);
+
   while (true) {
     logStatus('Fetching rows ' + from + '–' + (from + pageSize - 1) + '...');
 
-    const { data, error } = await db
+    let pageQuery = db
       .from('chat_messages')
-      .select('session_id, created_at, message')
-      .gte('created_at', fromDateStr)
-      .range(from, from + pageSize - 1);
+      .select('session_id, created_at, message');
+    if (fromDateStr) pageQuery = pageQuery.gte('created_at', fromDateStr);
+    const { data, error } = await pageQuery.range(from, from + pageSize - 1);
 
     if (error) {
       logStatus('Session fetch ERROR: ' + (error.message || JSON.stringify(error)));
@@ -497,7 +531,8 @@ async function loadSessions(fromDateStr = defaultFromDate()) {
     }
 
     logStatus('Got ' + data.length + ' rows in this page.');
-    totalRows += data.length;
+    rowsLoaded += data.length;
+    updateLoadProgress(rowsLoaded, totalCount);
 
     for (const row of data) {
       if (!sessionMap[row.session_id]) {
@@ -560,7 +595,7 @@ async function loadSessions(fromDateStr = defaultFromDate()) {
     from += pageSize;
   }
 
-  logStatus('Total rows fetched: ' + totalRows + ', unique sessions: ' + Object.keys(sessionMap).length);
+  logStatus('Total rows fetched: ' + rowsLoaded + ', unique sessions: ' + Object.keys(sessionMap).length);
 
   allSessions = Object.entries(sessionMap)
     .map(([id, info]) => ({
@@ -581,9 +616,13 @@ async function loadSessions(fromDateStr = defaultFromDate()) {
   allCategories = Array.from(globalCategorySet).sort();
   allRequestTypes = Array.from(globalRequestTypeSet).sort();
 
-  // Pre-populate the from-date filter to reflect what was actually loaded
-  if (!filterDateFrom.value || filterDateFrom.value > fromDateStr) {
-    filterDateFrom.value = fromDateStr;
+  // Sync the sidebar from-date filter to reflect what was actually loaded
+  if (fromDateStr) {
+    if (!filterDateFrom.value || filterDateFrom.value > fromDateStr) {
+      filterDateFrom.value = fromDateStr;
+    }
+  } else {
+    filterDateFrom.value = ''; // all time — no from-date filter
   }
 
   return true;
@@ -613,6 +652,24 @@ function buildDropdown(panel, trigger, items, defaultLabel, activePrefix) {
   updateDropdownLabel(panel, trigger, defaultLabel, activePrefix);
 }
 
+function handlePeriodWarning() {
+  const v = parseInt(loadPeriodSelect.value, 10);
+  loadPeriodWarning.style.display = (v === 0 || v > 3) ? 'block' : 'none';
+}
+
+function updateLoadProgress(loaded, total) {
+  if (!loadProgressBar || !loadProgressText) return;
+  const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+  loadProgressBar.style.width = pct + '%';
+  if (total === 0) {
+    loadProgressText.textContent = 'Counting rows…';
+  } else if (loaded < total) {
+    loadProgressText.textContent = `${loaded.toLocaleString()} of ${total.toLocaleString()} rows (${pct}%)`;
+  } else {
+    loadProgressText.textContent = `${total.toLocaleString()} rows loaded`;
+  }
+}
+
 function clearFilters() {
   filterDateFrom.value = '';
   filterDateTo.value = '';
@@ -631,9 +688,11 @@ function clearFilters() {
 
 async function handleDateFromChange() {
   const picked = filterDateFrom.value; // 'YYYY-MM-DD' or ''
-  // Re-fetch from server only when the user picks a date earlier than the loaded window
-  if (!picked || !loadedFromDate || picked < loadedFromDate) {
-    await loadSessions(picked || defaultFromDate());
+  // Re-fetch from server only if user picks a date earlier than the loaded window
+  if (picked && loadedFromDate && picked < loadedFromDate) {
+    loadingOverlay.style.display = 'flex';
+    await loadSessions(picked);
+    loadingOverlay.style.display = 'none';
     populateFilters();
   }
   renderSessionList();
@@ -1248,7 +1307,7 @@ function escapeHtml(str) {
 }
 
 const TIME_ZONE = 'Europe/Chisinau';
-const LOAD_DAYS_DEFAULT = 7; // days of history to load on initial/default fetch
+const LOAD_DAYS_DEFAULT = 3; // days of history to load on initial/default fetch
 
 function defaultFromDate() {
   const d = new Date();

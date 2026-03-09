@@ -1,17 +1,12 @@
--- User roles table: tracks whether each authenticated user is 'user' or 'admin'
-create table user_roles (
-  id          bigint generated always as identity primary key,
-  user_id     uuid   not null references auth.users(id) on delete cascade unique,
-  role        text   not null check (role in ('user', 'admin')) default 'user',
-  email       text   not null,
-  created_at  timestamptz not null default now()
-);
+-- The chat_view_user_roles table already exists.
+-- This migration only enables RLS, adds the select policy,
+-- and creates the trigger to auto-assign 'user' role on new sign-ups.
 
 -- Enable RLS: users may only read their own row (anon key access)
-alter table user_roles enable row level security;
+alter table chat_view_user_roles enable row level security;
 
 create policy "Users can read own role"
-  on user_roles for select
+  on chat_view_user_roles for select
   using (auth.uid() = user_id);
 
 -- Trigger: auto-assign 'user' role when a new auth.users row is created
@@ -19,7 +14,7 @@ create policy "Users can read own role"
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.user_roles (user_id, role, email)
+  insert into public.chat_view_user_roles (user_id, role, email)
   values (new.id, 'user', coalesce(new.email, ''))
   on conflict (user_id) do nothing;
   return new;

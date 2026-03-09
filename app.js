@@ -1252,7 +1252,7 @@ async function fetchOrCreateUserRole() {
   if (!db || !currentUser) return;
   try {
     const { data, error } = await db
-      .from('user_roles')
+      .from('chat_view_user_roles')
       .select('role')
       .eq('user_id', currentUser.id)
       .single();

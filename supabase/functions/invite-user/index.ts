@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
 
     // Verify the caller has admin role
     const { data: roleRow, error: roleError } = await adminClient
-      .from('user_roles')
+      .from('chat_view_user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single()

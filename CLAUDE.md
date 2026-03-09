@@ -13,17 +13,20 @@ The application is a zero-build-step frontend: open `index.html` in a browser an
 ```
 chat-view/
 ├── index.html                              # Single-page app (HTML + all CSS)
-├── app.js                                  # All application logic (~1170 lines)
+├── app.js                                  # All application logic (~1330 lines)
 ├── config.js                               # Gitignored — Supabase credentials, multi-env config + optional domain restriction
 ├── favicon.svg                             # Eyes emoji favicon
 ├── FEATURES.md                             # Feature list and todo tracker
 ├── SETUP.md                                # Google OAuth setup guide
 └── supabase/
     ├── functions/
-    │   └── chat-feedback/
-    │       └── index.ts                    # Deno Edge Function: store & forward feedback
+    │   ├── chat-feedback/
+    │   │   └── index.ts                    # Deno Edge Function: store & forward feedback
+    │   └── invite-user/
+    │       └── index.ts                    # Deno Edge Function: admin invite + role upsert
     └── migrations/
-        └── create_chat_feedback.sql        # DB schema for feedback table
+        ├── create_chat_feedback.sql        # DB schema for feedback table
+        └── create_user_roles.sql           # DB schema + RLS + trigger for user roles
 ```
 
 ## Technology Stack
@@ -94,11 +97,24 @@ The app reads from a `chat_messages` table (not created in this repo — it must
 
 ### `chat_feedback` table (created by migration)
 
-Run the migration on your Supabase project:
+Run the migrations on your Supabase project:
 ```bash
 supabase db push
 # or apply manually via Supabase SQL Editor
 ```
+
+### `chat_view_user_roles` table (created by migration)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | Primary key |
+| `user_id` | uuid | FK to `auth.users(id)` on delete cascade |
+| `role` | text | `'user'` or `'admin'` |
+| `email` | text | User's email address |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | |
+
+RLS is enabled; users may only read their own row (anon key access). A DB trigger (`on_auth_user_created`) auto-inserts a `'user'` row when a new `auth.users` record is created, covering both Google OAuth sign-ins and accepted invitations.
 
 ## Message Format
 
@@ -135,17 +151,19 @@ AI messages without `tool_calls` (or with an empty array) are treated as final r
 - `output.identity_verified` — shown as a green "verified" badge
 - `output.end_conversation` — shown as a red "end" badge
 
-## Edge Function
+## Edge Functions
+
+### `chat-feedback`
 
 The `chat-feedback` Edge Function is deployed separately from the frontend. It is invoked by the frontend as `chat-feedback` (the deployed Supabase slug matches the folder name).
 
-### Deploy
+#### Deploy
 
 ```bash
-supabase functions deploy chat-feedback --no-verify-jwt
+supabase functions deploy chat-feedback
 ```
 
-### Required Secrets (set in Supabase Dashboard → Edge Functions → Secrets)
+#### Required Secrets (set in Supabase Dashboard → Edge Functions → Secrets)
 
 | Secret | Required | Description |
 |---|---|---|
@@ -157,13 +175,37 @@ The Edge Function:
 1. Inserts feedback into `chat_feedback` using the service role key (bypasses RLS)
 2. Optionally forwards the full payload to an n8n webhook
 
+### `invite-user`
+
+Admin-only function that sends a Supabase invitation email and upserts a role row in `chat_view_user_roles`.
+
+#### Deploy
+
+```bash
+supabase functions deploy invite-user
+```
+
+#### Required Secrets (set in Supabase Dashboard → Edge Functions → Secrets)
+
+| Secret | Required | Description |
+|---|---|---|
+| `SUPABASE_URL` | Auto | Provided automatically by Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Auto | Provided automatically by Supabase |
+| `SUPABASE_ANON_KEY` | **Manual** | Required to verify caller's JWT — copy from Dashboard → Project Settings → API |
+
+The Edge Function:
+1. Verifies the caller's JWT and confirms they have `admin` role in `chat_view_user_roles`
+2. Calls `auth.admin.inviteUserByEmail(email)` to send an invitation email
+3. If the user already exists in Auth, looks them up via the Admin REST API and updates their role
+4. Upserts the assigned role row in `chat_view_user_roles`
+
 ## Key Code Conventions
 
 ### JavaScript (app.js)
 
 - **No framework** — plain DOM manipulation with `document.createElement`, `innerHTML`, `addEventListener`
 - **Module pattern** — IIFE `init()` runs on load; no ES modules
-- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta`, `reviewedSessions`, `environments` are top-level variables
+- **Global state** — `db`, `allSessions`, `allToolNames`, `allCategories`, `allRequestTypes`, `currentSessionId`, `feedbackMeta`, `reviewedSessions`, `environments`, `currentUserRole` (`'user' | 'admin' | null`) are top-level variables
 - **XSS prevention** — all user-supplied or database-sourced text is passed through `escapeHtml()` before setting `innerHTML`. Never set `innerHTML` with raw data.
 - **Pagination** — `loadSessions()` fetches `chat_messages` in pages of 1000 rows using `.range(from, from + pageSize - 1)`
 - **Timezone** — All dates displayed in `'Europe/Chisinau'` timezone (hardcoded constant `TIME_ZONE` near the bottom of `app.js`)
@@ -181,7 +223,7 @@ The Edge Function:
 
 - Two top-level panels: `#login-panel` (flex, visible by default) and `#chat-panel` (hidden until connected, shown via `.active` class)
 - Inside `#chat-panel`:
-  - `#sidebar` — session list, search, filters
+  - `#sidebar` — session list, search, filters; sidebar header contains the **Sessions** title, a pulsing `• Live` badge, and an **Invite** button (`#admin-settings-btn`, hidden for non-admins, shown only for `admin` role users)
   - `.chat-area` — wraps the header bar and `#chat-main`:
     - `#chat-header-bar` — permanent header with `#chat-session-controls` (left, session-specific) and `.chat-header-right` (right: Refresh, user name, Logout)
     - `#chat-main` — scrollable message area; wiped and repopulated on session switch
@@ -224,6 +266,8 @@ Reviewed state is managed client-side (no database writes):
 
 7. **chat-header-bar lives outside chat-main**: `#chat-header-bar` is a sibling of `#chat-main`, not a child. This means it survives `chatMain.innerHTML = ''` calls during session switches and logout. Do not move it inside `#chat-main`.
 
+8. **`chat_view_user_roles` must exist before first login**: `fetchOrCreateUserRole()` is called on every auth success. If the table is missing, all users are immediately signed out with an "Access denied" error. Run the `create_user_roles.sql` migration before deploying.
+
 ## Development Workflow
 
 Since there is no build step:
@@ -234,7 +278,11 @@ Since there is no build step:
 
 For Edge Function changes:
 1. Edit `supabase/functions/chat-feedback/index.ts`
-2. Deploy: `supabase functions deploy chat-feedback --no-verify-jwt`
+2. Deploy: `supabase functions deploy chat-feedback`
+
+For `invite-user` Edge Function changes:
+1. Edit `supabase/functions/invite-user/index.ts`
+2. Deploy: `supabase functions deploy invite-user`
 
 ## Git
 

@@ -1039,6 +1039,7 @@
       <div class="sidebar-header">
         <h2>Sessions</h2>
         <div class="sidebar-header-right">
+          <button id="admin-settings-btn" class="disconnect-btn" style="display:none">Invite</button>
           <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
         </div>
       </div>
@@ -1117,7 +1118,6 @@
         <div class="chat-header-right">
           <button class="disconnect-btn" id="refresh-btn">Refresh</button>
           <span class="user-name" id="user-badge" title=""></span>
-          <button class="disconnect-btn" id="admin-settings-btn" style="display:none">Invite</button>
           <button class="disconnect-btn" id="logout-btn">Logout</button>
         </div>
       </div>
@@ -1200,7 +1200,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=23"
+  <script src="app.js?v=24"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

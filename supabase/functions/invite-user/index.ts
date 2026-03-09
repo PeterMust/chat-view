@@ -6,13 +6,11 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Verify caller identity via their JWT
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -23,11 +21,8 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    // Service-role client — bypasses RLS for admin checks and invite
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
 
-    // Extract caller's user ID from their JWT using the anon client
     const callerClient = createClient(
       supabaseUrl,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -41,13 +36,11 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Verify the caller has admin role
     const { data: roleRow, error: roleError } = await adminClient
       .from('chat_view_user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single()
-
     if (roleError || !roleRow || roleRow.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Forbidden: admin role required' }),
@@ -55,7 +48,6 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Parse request body
     const { email, role: requestedRole } = await req.json()
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return new Response(
@@ -65,11 +57,36 @@ Deno.serve(async (req: Request) => {
     }
     const assignedRole = requestedRole === 'admin' ? 'admin' : 'user'
 
-    // Send invitation via Supabase Admin API
+    // Look up a user's UUID directly from Supabase Auth by email (reliable fallback)
+    async function lookupUserIdByEmail(targetEmail: string): Promise<string | null> {
+      try {
+        const res = await fetch(
+          `${supabaseUrl}/auth/v1/admin/users?search=${encodeURIComponent(targetEmail)}`,
+          { headers: { 'apikey': serviceRoleKey, 'Authorization': `Bearer ${serviceRoleKey}` } }
+        )
+        if (!res.ok) return null
+        const json = await res.json()
+        const found = (json?.users ?? []).find((u: any) => u.email === targetEmail)
+        return found?.id ?? null
+      } catch { return null }
+    }
+
+    // Upsert role row; returns error message or null on success
+    async function upsertRole(userId: string): Promise<string | null> {
+      const now = new Date().toISOString()
+      const { error } = await adminClient
+        .from('chat_view_user_roles')
+        .upsert(
+          { user_id: userId, email, role: assignedRole, updated_at: now },
+          { onConflict: 'user_id' }
+        )
+      if (error) { console.error('Role upsert error:', error); return error.message }
+      return null
+    }
+
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email)
 
     if (inviteError) {
-      // If the user already exists, just update their role instead of failing
       const msg = inviteError.message.toLowerCase()
       const alreadyExists = msg.includes('already') || msg.includes('registered') ||
                             (inviteError as any).status === 422
@@ -80,16 +97,20 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      // Look up the existing user by email in our roles table and update their role
-      const { data: existingRow } = await adminClient
-        .from('chat_view_user_roles')
-        .select('user_id')
-        .eq('email', email)
-        .single()
-      if (existingRow?.user_id) {
-        await adminClient
-          .from('chat_view_user_roles')
-          .upsert({ user_id: existingRow.user_id, email, role: assignedRole }, { onConflict: 'user_id' })
+      // User already exists in auth — find their ID via REST API and update role
+      const userId = await lookupUserIdByEmail(email)
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'User already exists but could not be found to update role' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      const upsertErr = await upsertRole(userId)
+      if (upsertErr) {
+        return new Response(
+          JSON.stringify({ error: 'Role could not be assigned: ' + upsertErr }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
       console.log(`Admin ${user.email} updated role for existing user ${email} to ${assignedRole}`)
       return new Response(
@@ -98,27 +119,24 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Upsert the role now — the invite returns the user ID immediately
-    // even before the user accepts the invitation
-    if (inviteData?.user?.id) {
-      const now = new Date().toISOString()
-      const { error: roleError } = await adminClient
-        .from('chat_view_user_roles')
-        .upsert(
-          { user_id: inviteData.user.id, email, role: assignedRole, updated_at: now },
-          { onConflict: 'user_id' }
-        )
-      if (roleError) {
-        console.error('Role upsert error:', roleError)
-        return new Response(
-          JSON.stringify({ error: 'User invited but role could not be assigned: ' + roleError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    // Invite succeeded — use userId from response, or fall back to REST lookup
+    const userId = inviteData?.user?.id ?? await lookupUserIdByEmail(email)
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Invite sent but could not determine user ID to assign role' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const upsertErr = await upsertRole(userId)
+    if (upsertErr) {
+      return new Response(
+        JSON.stringify({ error: 'User invited but role could not be assigned: ' + upsertErr }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log(`Admin ${user.email} invited ${email} as ${assignedRole}`)
-
     return new Response(
       JSON.stringify({ success: true, invited: email, role: assignedRole }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

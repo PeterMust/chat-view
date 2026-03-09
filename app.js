@@ -1265,7 +1265,7 @@ async function fetchOrCreateUserRole() {
       await db.auth.signOut();
       db = null;
       currentUser = null;
-      showLoginError('Access denied. Your account has been removed from this application.');
+      showLoginError('Access denied. Access restricted for this email.');
       return false;
     }
 

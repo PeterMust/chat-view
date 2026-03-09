@@ -657,7 +657,7 @@ function buildDropdown(panel, trigger, items, defaultLabel, activePrefix) {
 
 function handlePeriodWarning() {
   const v = parseInt(loadPeriodSelect.value, 10);
-  loadPeriodWarning.style.display = (v === 0 || v > 3) ? 'block' : 'none';
+  loadPeriodWarning.style.display = (v === 0 || v > 7) ? 'block' : 'none';
 }
 
 function updateLoadProgress(loaded, total) {

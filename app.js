@@ -1280,7 +1280,7 @@ async function fetchOrCreateUserRole() {
 
 function updateAdminButton() {
   if (!adminSettingsBtn) return;
-  adminSettingsBtn.style.display = currentUserRole === 'admin' ? 'flex' : 'none';
+  adminSettingsBtn.style.display = currentUserRole === 'admin' ? '' : 'none';
 }
 
 function openAdminModal() {

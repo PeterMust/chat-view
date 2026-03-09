@@ -5,6 +5,7 @@
 -- Enable RLS: users may only read their own row (anon key access)
 alter table chat_view_user_roles enable row level security;
 
+drop policy if exists "Users can read own role" on chat_view_user_roles;
 create policy "Users can read own role"
   on chat_view_user_roles for select
   using (auth.uid() = user_id);
@@ -21,6 +22,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();

@@ -2,6 +2,10 @@
 -- This migration only enables RLS, adds the select policy,
 -- and creates the trigger to auto-assign 'user' role on new sign-ups.
 
+-- Ensure user_id is unique (required for ON CONFLICT in the trigger below)
+create unique index if not exists chat_view_user_roles_user_id_key
+  on chat_view_user_roles (user_id);
+
 -- Enable RLS: users may only read their own row (anon key access)
 alter table chat_view_user_roles enable row level security;
 

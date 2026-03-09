@@ -142,12 +142,167 @@
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
     }
 
     .sidebar-header h2 {
       font-size: 18px;
     }
+
+    .sidebar-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Admin gear button */
+    .admin-settings-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1;
+      padding: 4px;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .admin-settings-btn:hover {
+      background: var(--bg);
+      color: var(--accent);
+    }
+
+    /* Admin Settings Modal */
+    .admin-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .admin-modal {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      width: 360px;
+      max-width: 92vw;
+      padding: 0;
+      overflow: hidden;
+    }
+    .admin-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .admin-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .admin-modal-close:hover { color: var(--text-primary); background: var(--bg); }
+    .admin-modal-body {
+      padding: 20px;
+    }
+    .admin-info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-info-row:last-of-type { border-bottom: none; }
+    .admin-info-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .admin-info-value {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .admin-role-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      text-transform: capitalize;
+    }
+    .admin-role-badge.role-admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .admin-invite-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .admin-invite-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .admin-invite-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .admin-invite-role {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .admin-invite-role:focus { border-color: var(--accent); }
+    .admin-invite-input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+    }
+    .admin-invite-input:focus { border-color: var(--accent); }
+    .admin-invite-btn {
+      width: auto;
+      padding: 8px 16px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .admin-invite-status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+    .admin-invite-status.error { color: var(--danger); }
+    .admin-invite-status.success { color: var(--accent); }
 
     .disconnect-btn {
       background: none;
@@ -900,7 +1055,10 @@
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h2>Sessions</h2>
-        <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
+        <div class="sidebar-header-right">
+          <button id="admin-settings-btn" class="admin-settings-btn" title="Admin Settings" style="display:none">⚙</button>
+          <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
+        </div>
       </div>
       <div class="search-box">
         <input type="text" id="session-search" placeholder="Search sessions...">
@@ -1012,6 +1170,38 @@
     </div>
   </div>
 
+  <!-- Admin Settings Modal -->
+  <div id="admin-modal-overlay" class="admin-modal-overlay" style="display:none">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3>Settings</h3>
+        <button id="admin-modal-close" class="admin-modal-close" title="Close">✕</button>
+      </div>
+      <div class="admin-modal-body">
+        <div class="admin-info-row">
+          <span class="admin-info-label">Name</span>
+          <span id="admin-info-name" class="admin-info-value"></span>
+        </div>
+        <div class="admin-info-row">
+          <span class="admin-info-label">Role</span>
+          <span id="admin-info-role" class="admin-info-value admin-role-badge"></span>
+        </div>
+        <div class="admin-invite-section">
+          <label class="admin-invite-label" for="admin-invite-email">Invite user by email</label>
+          <div class="admin-invite-row">
+            <input type="email" id="admin-invite-email" class="admin-invite-input" placeholder="user@anydomain.com">
+            <select id="admin-invite-role" class="admin-invite-role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button id="admin-invite-btn" class="btn admin-invite-btn">Invite</button>
+          </div>
+          <div id="admin-invite-status" class="admin-invite-status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Catch any load errors visibly on-page -->
   <script>
     window.onerror = function(msg, src, line, col, err) {
@@ -1025,7 +1215,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=19"
+  <script src="app.js?v=20"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

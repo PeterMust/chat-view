@@ -69,10 +69,32 @@ Deno.serve(async (req: Request) => {
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email)
 
     if (inviteError) {
-      console.error('Invite error:', inviteError)
+      // If the user already exists, just update their role instead of failing
+      const msg = inviteError.message.toLowerCase()
+      const alreadyExists = msg.includes('already') || msg.includes('registered') ||
+                            (inviteError as any).status === 422
+      if (!alreadyExists) {
+        console.error('Invite error:', inviteError)
+        return new Response(
+          JSON.stringify({ error: inviteError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      // Look up the existing user by email in our roles table and update their role
+      const { data: existingRow } = await adminClient
+        .from('chat_view_user_roles')
+        .select('user_id')
+        .eq('email', email)
+        .single()
+      if (existingRow?.user_id) {
+        await adminClient
+          .from('chat_view_user_roles')
+          .upsert({ user_id: existingRow.user_id, email, role: assignedRole }, { onConflict: 'user_id' })
+      }
+      console.log(`Admin ${user.email} updated role for existing user ${email} to ${assignedRole}`)
       return new Response(
-        JSON.stringify({ error: inviteError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, invited: email, role: assignedRole, note: 'role updated' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

@@ -453,6 +453,7 @@ function closeAllDropdowns() {
 function showLoginError(msg) {
   loginError.textContent = msg;
   loginError.style.display = 'block';
+  loginError.style.textAlign = 'center';
 }
 
 function hideLoginError() {

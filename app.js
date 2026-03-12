@@ -926,12 +926,14 @@ function parseMessage(row) {
     if (typeof content === 'string') {
       try {
         const parsed = JSON.parse(content);
-        // Format system metadata nicely
-        if (parsed.session_id || parsed.client_id || parsed.platform) {
-          const parts = [];
-          if (parsed.session_id) parts.push('Session: ' + parsed.session_id);
-          if (parsed.client_id) parts.push('Client: ' + parsed.client_id);
-          if (parsed.platform) parts.push('Platform: ' + parsed.platform);
+        // Format system metadata nicely — show all key-value pairs
+        const keys = Object.keys(parsed);
+        if (keys.length > 0) {
+          const labels = { session_id: 'Session', client_id: 'Client', platform: 'Platform', project: 'Project' };
+          const parts = keys.map(k => {
+            const label = labels[k] || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return label + ': ' + parsed[k];
+          });
           result.text = parts.join(' · ');
         } else {
           result.text = JSON.stringify(parsed, null, 2);

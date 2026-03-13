@@ -1023,7 +1023,7 @@ function renderMessages(rows, sessionId) {
         message_index: i,
         message_type: parsed.type,
         message_timestamp: parsed.timestamp,
-        message_text_excerpt: (parsed.text || '').substring(0, 200),
+        message_text_excerpt: parsed.text || '',
         tool_name: parsed.toolName || (parsed.toolCalls ? parsed.toolCalls.map((t) => t.name).join(', ') : undefined),
         raw: parsed.raw,
       });
@@ -1073,7 +1073,7 @@ function appendRealtimeMessage(row) {
       message_index: messageIndex,
       message_type: parsed.type,
       message_timestamp: parsed.timestamp,
-      message_text_excerpt: (parsed.text || '').substring(0, 200),
+      message_text_excerpt: parsed.text || '',
       tool_name: parsed.toolName || (parsed.toolCalls ? parsed.toolCalls.map((t) => t.name).join(', ') : undefined),
       raw: parsed.raw,
     });

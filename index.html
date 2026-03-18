@@ -241,37 +241,60 @@
     }
 
     /* Users dropdown */
-    .users-dropdown {
+    /* Users Modal */
+    .users-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 500;
       display: none;
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      min-width: 240px;
-      max-height: 320px;
-      overflow-y: auto;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-      z-index: 300;
+      align-items: center;
+      justify-content: center;
     }
-    .users-dropdown.open { display: block; }
-    .users-dropdown-header {
-      padding: 10px 14px 6px;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .users-modal-overlay.open { display: flex; }
+    .users-modal {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      width: 380px;
+      max-width: 92vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .users-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
       border-bottom: 1px solid var(--border);
+    }
+    .users-modal-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .users-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--text-secondary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .users-modal-close:hover { color: var(--text-primary); background: var(--bg); }
+    .users-modal-body {
+      overflow-y: auto;
+      flex: 1;
     }
     .users-dropdown-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 14px;
+      padding: 10px 20px;
       border-bottom: 1px solid var(--border);
       gap: 8px;
     }
@@ -1287,10 +1310,6 @@
           </div>
         </div>
         <div class="sidebar-header-right">
-          <div class="users-dropdown" id="users-dropdown">
-            <div class="users-dropdown-header">Platform Users</div>
-            <div id="users-dropdown-body"></div>
-          </div>
           <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
         </div>
       </div>
@@ -1402,6 +1421,17 @@
     </div>
   </div>
 
+  <!-- Users Modal -->
+  <div id="users-modal-overlay" class="users-modal-overlay">
+    <div class="users-modal">
+      <div class="users-modal-header">
+        <h3>Platform Users</h3>
+        <button id="users-modal-close" class="users-modal-close" title="Close">&#10005;</button>
+      </div>
+      <div class="users-modal-body" id="users-modal-body"></div>
+    </div>
+  </div>
+
   <!-- Admin Settings Modal -->
   <div id="admin-modal-overlay" class="admin-modal-overlay" style="display:none">
     <div class="admin-modal">
@@ -1449,7 +1479,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=37"
+  <script src="app.js?v=38"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

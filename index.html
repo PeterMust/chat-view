@@ -225,6 +225,14 @@
       color: var(--text-primary);
       text-align: left;
     }
+    .burger-menu-item > span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      font-size: 15px;
+    }
     .burger-menu-item:hover { background: var(--bg); }
     .burger-menu-item.danger { color: var(--danger); }
     .burger-menu-item.danger:hover { background: #fde8e8; }
@@ -1479,7 +1487,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=38"
+  <script src="app.js?v=39"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

@@ -849,6 +849,23 @@ async function selectSession(sessionId) {
     return;
   }
 
+  // Sync sidebar counts to match the actual rows fetched (fixes mismatch when
+  // loadSessions() used a date filter that excluded some older messages in this session).
+  const session = allSessions.find((s) => s.id === sessionId);
+  if (session && data.length !== session.count) {
+    const tc = { human: 0, ai: 0, tool: 0, system: 0 };
+    for (const row of data) {
+      try {
+        const msg = typeof row.message === 'string' ? JSON.parse(row.message) : row.message;
+        const t = msg && msg.type;
+        if (t && tc[t] !== undefined) tc[t]++;
+      } catch { /* skip */ }
+    }
+    session.count = data.length;
+    session.typeCounts = tc;
+    renderSessionList();
+  }
+
   renderMessages(data, sessionId);
 }
 

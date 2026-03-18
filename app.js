@@ -50,8 +50,9 @@ const loadPeriodWarning = document.getElementById('load-period-warning');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadProgressBar = document.getElementById('load-progress-bar');
 const loadProgressText = document.getElementById('load-progress-text');
-const usersDropdown = document.getElementById('users-dropdown');
-const usersDropdownBody = document.getElementById('users-dropdown-body');
+const usersModalOverlay = document.getElementById('users-modal-overlay');
+const usersModalBody = document.getElementById('users-modal-body');
+const usersModalClose = document.getElementById('users-modal-close');
 const burgerBtn = document.getElementById('burger-btn');
 const burgerDropdown = document.getElementById('burger-dropdown');
 const burgerUserEmail = document.getElementById('burger-user-email');
@@ -126,15 +127,15 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
         !burgerDropdown.contains(e.target) && e.target !== burgerBtn) {
       burgerDropdown.classList.remove('open');
     }
-    if (usersDropdown && usersDropdown.classList.contains('open') &&
-        !usersDropdown.contains(e.target) && !e.target.closest('#burger-users-btn')) {
-      closeUsersDropdown();
-    }
   });
   burgerUsersBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     burgerDropdown.classList.remove('open');
-    toggleUsersDropdown();
+    openUsersModal();
+  });
+  usersModalClose.addEventListener('click', closeUsersModal);
+  usersModalOverlay.addEventListener('click', (e) => {
+    if (e.target === usersModalOverlay) closeUsersModal();
   });
   burgerInviteBtn.addEventListener('click', () => {
     burgerDropdown.classList.remove('open');
@@ -375,7 +376,7 @@ async function handleLogout() {
   burgerUsersBtn.style.display = 'none';
   burgerInviteBtn.style.display = 'none';
   burgerDropdown.classList.remove('open');
-  closeUsersDropdown();
+  closeUsersModal();
   closeAdminModal();
   const sc = document.getElementById('chat-session-controls');
   if (sc) sc.innerHTML = '';
@@ -1429,25 +1430,16 @@ function updateAdminButton() {
   burgerUserRole.className = 'burger-user-role' + (isAdmin ? ' role-admin' : '');
 }
 
-// ── Users Dropdown ──
+// ── Users Modal ──
 
-function toggleUsersDropdown() {
-  if (!usersDropdown) return;
-  if (usersDropdown.classList.contains('open')) {
-    closeUsersDropdown();
-  } else {
-    openUsersDropdown();
-  }
+function closeUsersModal() {
+  if (usersModalOverlay) usersModalOverlay.classList.remove('open');
 }
 
-function closeUsersDropdown() {
-  if (usersDropdown) usersDropdown.classList.remove('open');
-}
-
-async function openUsersDropdown() {
-  if (!usersDropdown || !usersDropdownBody) return;
-  usersDropdownBody.innerHTML = '<div class="users-dropdown-loading">Loading…</div>';
-  usersDropdown.classList.add('open');
+async function openUsersModal() {
+  if (!usersModalOverlay || !usersModalBody) return;
+  usersModalBody.innerHTML = '<div class="users-dropdown-loading">Loading…</div>';
+  usersModalOverlay.classList.add('open');
   try {
     const { data, error } = await db
       .from('chat_view_user_roles')
@@ -1455,10 +1447,10 @@ async function openUsersDropdown() {
       .order('email', { ascending: true });
     if (error) throw error;
     if (!data || data.length === 0) {
-      usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">No users found.</div>';
+      usersModalBody.innerHTML = '<div class="users-dropdown-empty">No users found.</div>';
       return;
     }
-    usersDropdownBody.innerHTML = data.map(u => {
+    usersModalBody.innerHTML = data.map(u => {
       const email = u.email || '';
       const name = email.includes('@') ? email.split('@')[0] : email;
       return `<div class="users-dropdown-item">
@@ -1471,7 +1463,7 @@ async function openUsersDropdown() {
     }).join('');
   } catch (err) {
     console.error('[users] fetch error:', err);
-    usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">Failed to load users.</div>';
+    usersModalBody.innerHTML = '<div class="users-dropdown-empty">Failed to load users.</div>';
   }
 }
 

@@ -1439,7 +1439,7 @@ async function openUsersDropdown() {
     }
     usersDropdownBody.innerHTML = data.map(u => {
       const email = u.email || '';
-      const name = (currentUser && currentUser.email === email) ? currentUser.name : email;
+      const name = email.includes('@') ? email.split('@')[0] : email;
       return `<div class="users-dropdown-item">
         <div class="users-dropdown-info">
           <span class="users-dropdown-username">${escapeHtml(name)}</span>

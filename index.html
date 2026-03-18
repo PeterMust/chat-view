@@ -196,13 +196,26 @@
       gap: 8px;
     }
     .users-dropdown-item:last-child { border-bottom: none; }
-    .users-dropdown-email {
+    .users-dropdown-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      gap: 1px;
+    }
+    .users-dropdown-username {
       font-size: 13px;
+      font-weight: 600;
       color: var(--text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      min-width: 0;
+    }
+    .users-dropdown-email {
+      font-size: 11px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .users-dropdown-role {
       font-size: 11px;

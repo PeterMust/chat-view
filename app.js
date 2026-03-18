@@ -1437,12 +1437,17 @@ async function openUsersDropdown() {
       usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">No users found.</div>';
       return;
     }
-    usersDropdownBody.innerHTML = data.map(u =>
-      `<div class="users-dropdown-item">
-        <span class="users-dropdown-email">${escapeHtml(u.email || '')}</span>
+    usersDropdownBody.innerHTML = data.map(u => {
+      const email = u.email || '';
+      const username = email.includes('@') ? email.split('@')[0] : email;
+      return `<div class="users-dropdown-item">
+        <div class="users-dropdown-info">
+          <span class="users-dropdown-username">${escapeHtml(username)}</span>
+          <span class="users-dropdown-email">${escapeHtml(email)}</span>
+        </div>
         <span class="users-dropdown-role${u.role === 'admin' ? ' role-admin' : ''}">${escapeHtml(u.role || 'user')}</span>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   } catch (err) {
     console.error('[users] fetch error:', err);
     usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">Failed to load users.</div>';

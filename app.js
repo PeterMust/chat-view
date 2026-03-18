@@ -56,6 +56,10 @@ const usersListBtn = document.getElementById('users-list-btn');
 const usersDropdown = document.getElementById('users-dropdown');
 const usersDropdownBody = document.getElementById('users-dropdown-body');
 const adminSettingsBtn = document.getElementById('admin-settings-btn');
+const burgerBtn = document.getElementById('burger-btn');
+const burgerDropdown = document.getElementById('burger-dropdown');
+const burgerEmail = document.getElementById('burger-email');
+const burgerRoleBadge = document.getElementById('burger-role-badge');
 const adminModalOverlay = document.getElementById('admin-modal-overlay');
 const adminModalClose = document.getElementById('admin-modal-close');
 const adminInfoName = document.getElementById('admin-info-name');
@@ -77,8 +81,21 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
 // ── Init ──
 (async function init() {
   connectBtn.addEventListener('click', handleGoogleSignIn);
-  logoutBtn.addEventListener('click', handleLogout);
+  logoutBtn.addEventListener('click', () => { closeBurger(); handleLogout(); });
   refreshBtn.addEventListener('click', handleRefresh);
+
+  // Burger menu
+  burgerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    burgerDropdown.classList.toggle('open');
+    if (!burgerDropdown.classList.contains('open')) closeUsersDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    const burgerWrap = document.getElementById('burger-wrap');
+    if (burgerDropdown.classList.contains('open') && burgerWrap && !burgerWrap.contains(e.target)) {
+      closeBurger();
+    }
+  });
   sessionSearch.addEventListener('input', renderSessionList);
 
   // Filter controls
@@ -127,7 +144,7 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   });
 
   // Admin settings modal
-  adminSettingsBtn.addEventListener('click', openAdminModal);
+  adminSettingsBtn.addEventListener('click', () => { closeBurger(); openAdminModal(); });
   adminModalClose.addEventListener('click', closeAdminModal);
   adminModalOverlay.addEventListener('click', (e) => {
     if (e.target === adminModalOverlay) closeAdminModal();
@@ -355,7 +372,7 @@ async function handleLogout() {
   if (userBadge) userBadge.textContent = '';
   if (adminSettingsBtn) adminSettingsBtn.style.display = 'none';
   if (usersListBtn) usersListBtn.style.display = 'none';
-  closeUsersDropdown();
+  closeBurger();
   closeAdminModal();
   const sc = document.getElementById('chat-session-controls');
   if (sc) sc.innerHTML = '';
@@ -1406,6 +1423,11 @@ function updateAdminButton() {
   const isAdmin = currentUserRole === 'admin';
   adminSettingsBtn.style.display = isAdmin ? '' : 'none';
   if (usersListBtn) usersListBtn.style.display = isAdmin ? '' : 'none';
+  if (burgerEmail) burgerEmail.textContent = currentUser?.email || '';
+  if (burgerRoleBadge) {
+    burgerRoleBadge.textContent = currentUserRole || 'user';
+    burgerRoleBadge.className = 'burger-role-badge' + (currentUserRole === 'admin' ? ' role-admin' : '');
+  }
 }
 
 // ── Users Dropdown ──
@@ -1421,6 +1443,11 @@ function toggleUsersDropdown() {
 
 function closeUsersDropdown() {
   if (usersDropdown) usersDropdown.classList.remove('open');
+}
+
+function closeBurger() {
+  if (burgerDropdown) burgerDropdown.classList.remove('open');
+  closeUsersDropdown();
 }
 
 async function openUsersDropdown() {

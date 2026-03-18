@@ -160,26 +160,98 @@
       position: relative;
     }
 
-    /* Users dropdown */
-    .users-dropdown {
+    /* Burger menu */
+    .burger-wrap {
+      position: relative;
+    }
+    .burger-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      color: var(--text-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .burger-btn:hover { background: var(--bg); }
+    .burger-dropdown {
       display: none;
       position: absolute;
       top: calc(100% + 6px);
-      right: 0;
-      min-width: 240px;
-      max-height: 320px;
-      overflow-y: auto;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      left: 0;
+      min-width: 230px;
+      background: #fff;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
       z-index: 300;
+      overflow: hidden;
+    }
+    .burger-dropdown.open { display: block; }
+    .burger-user-row {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border);
+    }
+    .burger-email {
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .burger-role-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      flex-shrink: 0;
+      text-transform: capitalize;
+    }
+    .burger-role-badge.role-admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .burger-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 9px 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-primary);
+      text-align: left;
+    }
+    .burger-item:hover { background: var(--bg); }
+    .burger-item-danger { color: var(--danger); }
+    .burger-item-danger:hover { background: #fde8e8; color: var(--danger); }
+    .burger-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+    }
+
+    /* Users inline list (inside burger) */
+    .users-dropdown {
+      display: none;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fafbfc;
+      border-top: 1px solid var(--border);
     }
     .users-dropdown.open { display: block; }
     .users-dropdown-header {
-      padding: 10px 14px 6px;
+      padding: 8px 14px 5px;
       font-size: 11px;
       font-weight: 700;
       color: var(--text-secondary);
@@ -232,13 +304,13 @@
       color: #92400e;
     }
     .users-dropdown-empty {
-      padding: 16px 14px;
+      padding: 12px 14px;
       font-size: 13px;
       color: var(--text-secondary);
       text-align: center;
     }
     .users-dropdown-loading {
-      padding: 16px 14px;
+      padding: 12px 14px;
       font-size: 13px;
       color: var(--text-secondary);
       text-align: center;
@@ -1197,16 +1269,24 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h2>Sessions</h2>
-        <div class="sidebar-header-right">
-          <button id="users-list-btn" class="disconnect-btn" style="display:none">Users</button>
-          <div class="users-dropdown" id="users-dropdown">
-            <div class="users-dropdown-header">Platform Users</div>
-            <div id="users-dropdown-body"></div>
+        <div class="burger-wrap" id="burger-wrap">
+          <button id="burger-btn" class="burger-btn" title="Menu">&#9776;</button>
+          <div class="burger-dropdown" id="burger-dropdown">
+            <div class="burger-user-row">
+              <span id="burger-email" class="burger-email"></span>
+              <span id="burger-role-badge" class="burger-role-badge"></span>
+            </div>
+            <button id="users-list-btn" class="burger-item" style="display:none">Users</button>
+            <div class="users-dropdown" id="users-dropdown">
+              <div class="users-dropdown-header">Platform Users</div>
+              <div id="users-dropdown-body"></div>
+            </div>
+            <button id="admin-settings-btn" class="burger-item" style="display:none">Invite</button>
+            <div class="burger-divider"></div>
+            <button id="logout-btn" class="burger-item burger-item-danger">Logout</button>
           </div>
-          <button id="admin-settings-btn" class="disconnect-btn" style="display:none">Invite</button>
-          <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
         </div>
+        <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
       </div>
       <div class="search-box">
         <input type="text" id="session-search" placeholder="Search sessions...">
@@ -1283,7 +1363,6 @@
         <div class="chat-header-right">
           <button class="disconnect-btn" id="refresh-btn">Refresh</button>
           <span class="user-name" id="user-badge" title=""></span>
-          <button class="disconnect-btn" id="logout-btn">Logout</button>
         </div>
       </div>
       <div class="chat-main" id="chat-main">
@@ -1365,7 +1444,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=36"
+  <script src="app.js?v=37"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>

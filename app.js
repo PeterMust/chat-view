@@ -52,6 +52,9 @@ const loadPeriodWarning = document.getElementById('load-period-warning');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadProgressBar = document.getElementById('load-progress-bar');
 const loadProgressText = document.getElementById('load-progress-text');
+const usersListBtn = document.getElementById('users-list-btn');
+const usersDropdown = document.getElementById('users-dropdown');
+const usersDropdownBody = document.getElementById('users-dropdown-body');
 const adminSettingsBtn = document.getElementById('admin-settings-btn');
 const adminModalOverlay = document.getElementById('admin-modal-overlay');
 const adminModalClose = document.getElementById('admin-modal-close');
@@ -109,6 +112,18 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
   fbSubmit.addEventListener('click', submitFeedback);
   feedbackOverlay.addEventListener('click', (e) => {
     if (e.target === feedbackOverlay) closeFeedbackModal();
+  });
+
+  // Users dropdown
+  usersListBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleUsersDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    if (usersDropdown && usersDropdown.classList.contains('open') &&
+        !usersDropdown.contains(e.target) && e.target !== usersListBtn) {
+      closeUsersDropdown();
+    }
   });
 
   // Admin settings modal
@@ -339,6 +354,8 @@ async function handleLogout() {
   reviewedSessions = new Set();
   if (userBadge) userBadge.textContent = '';
   if (adminSettingsBtn) adminSettingsBtn.style.display = 'none';
+  if (usersListBtn) usersListBtn.style.display = 'none';
+  closeUsersDropdown();
   closeAdminModal();
   const sc = document.getElementById('chat-session-controls');
   if (sc) sc.innerHTML = '';
@@ -1386,7 +1403,50 @@ async function fetchOrCreateUserRole() {
 
 function updateAdminButton() {
   if (!adminSettingsBtn) return;
-  adminSettingsBtn.style.display = currentUserRole === 'admin' ? '' : 'none';
+  const isAdmin = currentUserRole === 'admin';
+  adminSettingsBtn.style.display = isAdmin ? '' : 'none';
+  if (usersListBtn) usersListBtn.style.display = isAdmin ? '' : 'none';
+}
+
+// ── Users Dropdown ──
+
+function toggleUsersDropdown() {
+  if (!usersDropdown) return;
+  if (usersDropdown.classList.contains('open')) {
+    closeUsersDropdown();
+  } else {
+    openUsersDropdown();
+  }
+}
+
+function closeUsersDropdown() {
+  if (usersDropdown) usersDropdown.classList.remove('open');
+}
+
+async function openUsersDropdown() {
+  if (!usersDropdown || !usersDropdownBody) return;
+  usersDropdownBody.innerHTML = '<div class="users-dropdown-loading">Loading…</div>';
+  usersDropdown.classList.add('open');
+  try {
+    const { data, error } = await db
+      .from('chat_view_user_roles')
+      .select('email, role')
+      .order('email', { ascending: true });
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">No users found.</div>';
+      return;
+    }
+    usersDropdownBody.innerHTML = data.map(u =>
+      `<div class="users-dropdown-item">
+        <span class="users-dropdown-email">${escapeHtml(u.email || '')}</span>
+        <span class="users-dropdown-role${u.role === 'admin' ? ' role-admin' : ''}">${escapeHtml(u.role || 'user')}</span>
+      </div>`
+    ).join('');
+  } catch (err) {
+    console.error('[users] fetch error:', err);
+    usersDropdownBody.innerHTML = '<div class="users-dropdown-empty">Failed to load users.</div>';
+  }
 }
 
 function openAdminModal() {

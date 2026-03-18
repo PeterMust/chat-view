@@ -1394,17 +1394,6 @@ async function fetchOrCreateUserRole() {
 
     currentUserRole = data.role;
     updateAdminButton();
-
-    // Persist the display name so admins can see it in the Users list
-    if (currentUser.name) {
-      db.from('chat_view_user_roles')
-        .update({ name: currentUser.name })
-        .eq('user_id', currentUser.id)
-        .then(({ error }) => {
-          if (error) console.warn('[roles] name update failed:', error);
-        });
-    }
-
     return true;
   } catch (err) {
     console.warn('[roles] fetchOrCreateUserRole failed:', err);
@@ -1441,7 +1430,7 @@ async function openUsersDropdown() {
   try {
     const { data, error } = await db
       .from('chat_view_user_roles')
-      .select('name, email, role')
+      .select('email, role')
       .order('email', { ascending: true });
     if (error) throw error;
     if (!data || data.length === 0) {
@@ -1449,11 +1438,11 @@ async function openUsersDropdown() {
       return;
     }
     usersDropdownBody.innerHTML = data.map(u => {
-      const name = u.name || '';
       const email = u.email || '';
+      const name = (currentUser && currentUser.email === email) ? currentUser.name : email;
       return `<div class="users-dropdown-item">
         <div class="users-dropdown-info">
-          <span class="users-dropdown-username">${escapeHtml(name || email)}</span>
+          <span class="users-dropdown-username">${escapeHtml(name)}</span>
           <span class="users-dropdown-email">${escapeHtml(email)}</span>
         </div>
         <span class="users-dropdown-role${u.role === 'admin' ? ' role-admin' : ''}">${escapeHtml(u.role || 'user')}</span>

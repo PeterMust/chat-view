@@ -13,8 +13,6 @@ const loginPanel = document.getElementById('login-panel');
 const chatPanel = document.getElementById('chat-panel');
 const connectBtn = document.getElementById('connect-btn');
 const loginError = document.getElementById('login-error');
-const logoutBtn = document.getElementById('logout-btn');
-const userBadge = document.getElementById('user-badge');
 const refreshBtn = document.getElementById('refresh-btn');
 const sessionSearch = document.getElementById('session-search');
 const sessionCount = document.getElementById('session-count');
@@ -52,10 +50,15 @@ const loadPeriodWarning = document.getElementById('load-period-warning');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadProgressBar = document.getElementById('load-progress-bar');
 const loadProgressText = document.getElementById('load-progress-text');
-const usersListBtn = document.getElementById('users-list-btn');
 const usersDropdown = document.getElementById('users-dropdown');
 const usersDropdownBody = document.getElementById('users-dropdown-body');
-const adminSettingsBtn = document.getElementById('admin-settings-btn');
+const burgerBtn = document.getElementById('burger-btn');
+const burgerDropdown = document.getElementById('burger-dropdown');
+const burgerUserEmail = document.getElementById('burger-user-email');
+const burgerUserRole = document.getElementById('burger-user-role');
+const burgerUsersBtn = document.getElementById('burger-users-btn');
+const burgerInviteBtn = document.getElementById('burger-invite-btn');
+const burgerLogoutBtn = document.getElementById('burger-logout-btn');
 const adminModalOverlay = document.getElementById('admin-modal-overlay');
 const adminModalClose = document.getElementById('admin-modal-close');
 const adminInfoName = document.getElementById('admin-info-name');
@@ -77,7 +80,6 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
 // ── Init ──
 (async function init() {
   connectBtn.addEventListener('click', handleGoogleSignIn);
-  logoutBtn.addEventListener('click', handleLogout);
   refreshBtn.addEventListener('click', handleRefresh);
   sessionSearch.addEventListener('input', renderSessionList);
 
@@ -114,20 +116,36 @@ console.log('[app.js] Script loaded. Supabase available:', !!(window.supabase &&
     if (e.target === feedbackOverlay) closeFeedbackModal();
   });
 
-  // Users dropdown
-  usersListBtn.addEventListener('click', (e) => {
+  // Burger menu
+  burgerBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    toggleUsersDropdown();
+    burgerDropdown.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
+    if (burgerDropdown.classList.contains('open') &&
+        !burgerDropdown.contains(e.target) && e.target !== burgerBtn) {
+      burgerDropdown.classList.remove('open');
+    }
     if (usersDropdown && usersDropdown.classList.contains('open') &&
-        !usersDropdown.contains(e.target) && e.target !== usersListBtn) {
+        !usersDropdown.contains(e.target) && !e.target.closest('#burger-users-btn')) {
       closeUsersDropdown();
     }
   });
+  burgerUsersBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    burgerDropdown.classList.remove('open');
+    toggleUsersDropdown();
+  });
+  burgerInviteBtn.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    openAdminModal();
+  });
+  burgerLogoutBtn.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    handleLogout();
+  });
 
   // Admin settings modal
-  adminSettingsBtn.addEventListener('click', openAdminModal);
   adminModalClose.addEventListener('click', closeAdminModal);
   adminModalOverlay.addEventListener('click', (e) => {
     if (e.target === adminModalOverlay) closeAdminModal();
@@ -266,7 +284,7 @@ async function afterAuthSuccess(user) {
     name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || '',
   };
 
-  if (userBadge) userBadge.textContent = currentUser.name;
+  burgerUserEmail.textContent = currentUser.email;
 
   hideLoginError();
   clearStatusLog();
@@ -352,9 +370,11 @@ async function handleLogout() {
   allSessions = [];
   currentSessionId = null;
   reviewedSessions = new Set();
-  if (userBadge) userBadge.textContent = '';
-  if (adminSettingsBtn) adminSettingsBtn.style.display = 'none';
-  if (usersListBtn) usersListBtn.style.display = 'none';
+  burgerUserEmail.textContent = '';
+  burgerUserRole.textContent = '';
+  burgerUsersBtn.style.display = 'none';
+  burgerInviteBtn.style.display = 'none';
+  burgerDropdown.classList.remove('open');
   closeUsersDropdown();
   closeAdminModal();
   const sc = document.getElementById('chat-session-controls');
@@ -1402,10 +1422,11 @@ async function fetchOrCreateUserRole() {
 }
 
 function updateAdminButton() {
-  if (!adminSettingsBtn) return;
   const isAdmin = currentUserRole === 'admin';
-  adminSettingsBtn.style.display = isAdmin ? '' : 'none';
-  if (usersListBtn) usersListBtn.style.display = isAdmin ? '' : 'none';
+  burgerUsersBtn.style.display = isAdmin ? '' : 'none';
+  burgerInviteBtn.style.display = isAdmin ? '' : 'none';
+  burgerUserRole.textContent = currentUserRole || 'user';
+  burgerUserRole.className = 'burger-user-role' + (isAdmin ? ' role-admin' : '');
 }
 
 // ── Users Dropdown ──

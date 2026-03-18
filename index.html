@@ -157,6 +157,91 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      position: relative;
+    }
+
+    /* Users dropdown */
+    .users-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 240px;
+      max-height: 320px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      z-index: 300;
+    }
+    .users-dropdown.open { display: block; }
+    .users-dropdown-header {
+      padding: 10px 14px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .users-dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .users-dropdown-item:last-child { border-bottom: none; }
+    .users-dropdown-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      gap: 1px;
+    }
+    .users-dropdown-username {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .users-dropdown-email {
+      font-size: 11px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .users-dropdown-role {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      flex-shrink: 0;
+      text-transform: capitalize;
+    }
+    .users-dropdown-role.role-admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .users-dropdown-empty {
+      padding: 16px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .users-dropdown-loading {
+      padding: 16px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
     }
 
     /* Admin Settings Modal */
@@ -1114,6 +1199,11 @@
       <div class="sidebar-header">
         <h2>Sessions</h2>
         <div class="sidebar-header-right">
+          <button id="users-list-btn" class="disconnect-btn" style="display:none">Users</button>
+          <div class="users-dropdown" id="users-dropdown">
+            <div class="users-dropdown-header">Platform Users</div>
+            <div id="users-dropdown-body"></div>
+          </div>
           <button id="admin-settings-btn" class="disconnect-btn" style="display:none">Invite</button>
           <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
         </div>
@@ -1275,7 +1365,7 @@
   </script>
   <!-- config.js is gitignored; its absence is fine — the app falls back to manual entry -->
   <script src="config.js" onerror="console.info('config.js not found — using manual credential entry.');"></script>
-  <script src="app.js?v=32"
+  <script src="app.js?v=36"
           onerror="document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Failed to load app.js.';">
   </script>
 </body>
